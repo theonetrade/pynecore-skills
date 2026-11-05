@@ -1,5 +1,6 @@
 ---
 name: pynecore-strategy
+license: MIT
 description: Design, write, backtest, debug, optimize and deploy trading strategies and indicators as PyneCore (Pyne) Python scripts, and run them through the `pyne` CLI or the `ScriptRunner` API. Use this skill whenever a task involves PyneCore, Pyne code, a `@pyne` docstring, `pynecore.lib`, `ta.*` / `strategy.*` calls in Python, `pyne run`, `.ohlcv` data files, a PyneCore workdir (`scripts/`, `data/`, `output/`), backtests or parameter sweeps of a Python trading strategy, `request.security` multi-timeframe logic, live CCXT feeds through PyneCore, or FreqTrade integration with PyneCore scripts, even when the user just says "write me a strategy", "backtest this idea", "why does my strategy not trade" or "add a stop loss" in a project that contains PyneCore files.
 ---
 

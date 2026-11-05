@@ -1,6 +1,7 @@
 ---
 name: pynecore-docs
-description: Read the complete PyneCore documentation offline from the copy bundled in this skill. Use whenever a PyneCore / Pyne question needs an exact API signature, parameter list, setting name, CLI flag, file format or behaviour detail that memory cannot guarantee: `ta.*`, `strategy.*`, `request.security`, `input.*`, `ScriptRunner`, `pyne run` / `pyne data` options, the symbol `.toml`, live mode, bar magnifier, profiling, internals. The skill carries every documentation page (about 110 Markdown files), a topic map, a page inventory, a grep/print tool, a version check against the installed runtime and a script that refreshes the snapshot from a PyneCore release. No network and no editor installation are needed.
+license: MIT
+description: "Read the complete PyneCore documentation offline from the copy bundled in this skill. Use whenever a PyneCore / Pyne question needs an exact API signature, parameter list, setting name, CLI flag, file format or behaviour detail that memory cannot guarantee: `ta.*`, `strategy.*`, `request.security`, `input.*`, `ScriptRunner`, `pyne run` / `pyne data` options, the symbol `.toml`, live mode, bar magnifier, profiling, internals. The skill carries every documentation page (about 110 Markdown files), a topic map, a page inventory, a grep/print tool, a version check against the installed runtime and a script that refreshes the snapshot from a PyneCore release. No network and no editor installation are needed."
 ---
 
 # PyneCore documentation, offline

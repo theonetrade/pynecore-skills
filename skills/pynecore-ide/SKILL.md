@@ -1,5 +1,6 @@
 ---
 name: pynecore-ide
+license: MIT
 description: Work inside a project set up by PyneIDE, the VS Code extension for PyneCore. Use whenever a project contains a `.pyneide/` folder or `pyneide.*` keys in `.vscode/settings.json`, when the user mentions PyneIDE, "run it in the IDE", the chart, Edit Inputs, debugging a Pyne script bar by bar, Next Bar / Run to Bar / Choose Bar on Chart, the PyneIDE Run output panel, the managed Python environment, Manage Plugins, or asks why the terminal cannot find `pyne`. Covers the IDE-managed environment and how an agent shell reaches it, which generated files matter and which are disposable, the editor commands for running, debugging, profiling, inputs, data and charts, and how to report what was verified in the IDE versus the CLI.
 ---
 
