@@ -1,7 +1,7 @@
 ---
 name: pynecore-strategy
 license: MIT
-description: Design, write, backtest, debug, optimize and deploy trading strategies and indicators as PyneCore (Pyne) Python scripts, and run them through the `pyne` CLI or the `ScriptRunner` API. Use this skill whenever a task involves PyneCore, Pyne code, a `@pyne` docstring, `pynecore.lib`, `ta.*` / `strategy.*` calls in Python, `pyne run`, `.ohlcv` data files, a PyneCore workdir (`scripts/`, `data/`, `output/`), backtests or parameter sweeps of a Python trading strategy, `request.security` multi-timeframe logic, live CCXT feeds through PyneCore, or FreqTrade integration with PyneCore scripts, even when the user just says "write me a strategy", "backtest this idea", "why does my strategy not trade" or "add a stop loss" in a project that contains PyneCore files.
+description: Design, write, backtest, debug, optimize and deploy trading strategies and indicators as PyneCore (Pyne) Python scripts, and run them through the `pyne` CLI or the `ScriptRunner` API. Use this skill whenever a task involves PyneCore, Pyne code, a `@pyne` docstring, `pynecore.lib`, `ta.*` / `strategy.*` calls in Python, `pyne run`, `.ohlcv` data files, downloading or caching exchange candles through CCXT (Binance, Bybit, ...), a PyneCore workdir (`scripts/`, `data/`, `output/`), backtests or parameter sweeps of a Python trading strategy, `request.security` multi-timeframe logic, live CCXT feeds through PyneCore, or FreqTrade integration with PyneCore scripts, even when the user just says "write me a strategy", "backtest this idea", "why does my strategy not trade" or "add a stop loss" in a project that contains PyneCore files.
 ---
 
 # PyneCore strategy development
@@ -40,9 +40,15 @@ Rules that follow from it:
   (or `pyne_env.py` prints the exact fix). No PyneCore in an existing environment:
   `pip install "pynesys-pynecore[cli,ccxt]"` or `uv add "pynesys-pynecore[cli,ccxt]"`.
 - No data: `pyne --recreate-demo plugin list` creates `data/demo.ohlcv` (2000 synthetic daily
-  bars) for smoke tests; real data comes from `pyne data download ccxt:BYBIT:BTC/USDT:USDT@1D` or
-  `pyne data convert-from file.csv`. **Open the generated `data/<name>.toml` and check
-  `mintick`, `pointvalue`, `mincontract`, `basecurrency`, `timezone`** before trusting results.
+  bars) for smoke tests; real data comes from
+  `<python> <skill>/scripts/download_candles.py BTC/USDT -tf 60` (Binance by default, any CCXT
+  exchange with `--exchange`, several symbols, `--status`), `pyne data download
+  ccxt:BYBIT:BTC/USDT:USDT@1D` or `pyne data convert-from file.csv`. The downloaded
+  `data/<name>.ohlcv` + `.toml` is the candle cache: a later call appends only new bars, and
+  backtests run on the file name offline. Never backtest on a provider string
+  (`pyne run SCRIPT ccxt:...` downloads again on every run). **Open the generated
+  `data/<name>.toml` and check `mintick`, `pointvalue`, `mincontract`, `basecurrency`,
+  `timezone`** before trusting results.
 - For details this skill's `references/` do not cover, the `pynecore-docs` skill carries the
   complete PyneCore documentation offline (`find_docs.py --grep`, `--page`).
 - A project initialized by PyneIDE (`.pyneide/` folder, `pyneide.*` settings) has a managed
@@ -129,6 +135,7 @@ Full detail: [references/strategy-api.md](references/strategy-api.md),
 - **Running**:
 
   ```bash
+  <python> <skill>/scripts/download_candles.py BTC/USDT -tf 60 [--from 2024-01-01]   # cache / update candles first
   PYNE_NO_LOGO=1 <pyne> run <script> <data> [--from 2023-01-01 --to 2024-12-31] [--timeframe 60] [--security "1D=name"]
   <python> <skill>/scripts/run_backtest.py <script.py> <data.ohlcv|csv> [--input k=v] [--setting k=v] [--sweep k=a:b:step] [--json]
   ```
@@ -173,7 +180,7 @@ symptom-to-fix tables.
 | Inputs, the script `.toml`, overrides, env vars | `references/inputs-and-settings.md` |
 | All 67 `ta.*` functions with signatures | `references/ta.md` |
 | Bar data, time/session functions, `math`, `array`/`map`, `string`, `barstate`, `timeframe`, `syminfo`, plots, drawings, `log` | `references/lib.md` |
-| Workdir, `pyne run` options, data download/convert/aggregate, symbol `.toml`, bar magnifier, outputs | `references/cli-and-data.md` |
+| Workdir, `pyne run` options, data download/convert/aggregate, the candle cache (`continue`, forming bars, provider mode), symbol `.toml`, bar magnifier, outputs | `references/cli-and-data.md` |
 | `ScriptRunner`, `OHLCV`, `SymInfo`, standalone scripts, trades, sweeps | `references/programmatic.md` |
 | `request.security`, lookahead modes, security data, symbol map | `references/multi-timeframe.md` |
 | Live mode, broker plugins, DataFrame bridge, FreqTrade, notifications | `references/live-and-integrations.md` |
@@ -187,6 +194,7 @@ symptom-to-fix tables.
 | `scripts/init_project.py` | Create a complete project: workdir layout, `.venv` with PyneCore (uv or pip), demo script and data, `pyrightconfig.json`, `.gitignore`; optional template and smoke test (stdlib) |
 | `scripts/pyne_env.py` | Probe an existing project: workdir structure, scripts, data, config, interpreter, CLI (stdlib) |
 | `scripts/new_script.py` | Scaffold a strategy / indicator / library / minimal workdir script; `--cli-only` strips the standalone bootstrap (stdlib) |
+| `scripts/download_candles.py` | Download / update exchange candles through CCXT (Binance by default) into `data/`, closed bars only, `--status` cache check, several symbols, JSON (needs the project interpreter with `[ccxt]`) |
 | `scripts/run_backtest.py` | Backtest with overrides, date range, CSV conversion, sweeps, JSON (needs the project interpreter) |
 | `scripts/summarize_backtest.py` | Turn `_strat.csv` + `_trade.csv` into a short report with warnings (stdlib) |
 | `templates/minimal_cli.py` | Workdir-only strategy (EMA crossover, ATR stop/target, explicit sizing and costs); no bootstrap, runs only via `pyne run` / the IDE |

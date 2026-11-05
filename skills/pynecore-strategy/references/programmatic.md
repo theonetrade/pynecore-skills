@@ -9,6 +9,7 @@ The CLI is a thin wrapper around the same classes.
 - [`ScriptRunner`](#scriptrunner)
 - [Data: `OHLCV` objects](#data-ohlcv-objects)
 - [Symbol info: `SymInfo`](#symbol-info-syminfo)
+- [Downloading and updating candles](#downloading-and-updating-candles)
 - [Reading results](#reading-results)
 - [Trades](#trades)
 - [Parameter sweeps](#parameter-sweeps)
@@ -180,6 +181,29 @@ timezone="America/New_York"` plus real session hours (`SymInfoInterval(day, star
 
 `basecurrency` must be the bare asset code (`"BTC"`), it selects the quantity rounding
 precision for crypto sizing.
+
+## Downloading and updating candles
+
+Exchange candles are cached as `data/<name>.ohlcv` + `.toml` and only ever appended to.
+`download_to_file` (`pynecore.core.download_runner`) is the flow behind `pyne data download`:
+
+```python
+from pynecore.core.config import ensure_config
+from pynecore.core.download_runner import download_to_file
+from pynecore.providers.ccxt import CCXTConfig, CCXTProvider
+
+config = ensure_config(CCXTConfig, Path("config/plugins/ccxt.toml"))
+provider = CCXTProvider(symbol="binance:BTC/USDT", timeframe="60", ohlcv_dir=Path("data"), config=config)
+result = download_to_file(provider, time_from="continue", time_to=last_closed_bar_open,
+                          syminfo=provider.get_symbol_info(), on_conflict="abort",
+                          provider_string="ccxt:BINANCE:BTC/USDT@60")
+bars = list(OHLCVReader(result.ohlcv_path).read_from(...))   # then ScriptRunner as above
+```
+
+`time_from="continue"` resumes at the last stored bar; stop one bar before "now", because a
+bar stored while still forming is never rewritten later. Details, rules and the ready-made
+command (`scripts/download_candles.py`) are in
+[cli-and-data.md](cli-and-data.md#candle-cache-download-once-update-run-offline).
 
 ## Reading results
 

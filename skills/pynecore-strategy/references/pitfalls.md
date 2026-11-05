@@ -66,6 +66,10 @@ Read this before declaring a strategy finished. Each entry: symptom, cause, fix.
 | Weekend/holiday gaps counted as bars | They are not; only real bars exist | Use `time`-based logic, not `bar_index` arithmetic, for calendar spans |
 | `--timeframe` rejected | Not an exact multiple of the data timeframe | Choose a compatible chart timeframe |
 | `request.security` fails | Missing data for that context | `--security "1D=name"`, `security_data=`, or `pyne data map`; check `--list-data` |
+| Every run hits the exchange; slow; numbers differ between runs | `pyne run SCRIPT ccxt:...` (provider string) downloads the bars again on every run | Download once (`pyne data download`, `download_candles.py`), run on the file name; see [cli-and-data.md](cli-and-data.md#candle-cache-download-once-update-run-offline) |
+| Last bar of a cached file has a wrong close/volume that never changes | It was stored while still forming; `continue` never rewrites a stored bar | Store closed bars only (`download_candles.py` default `--to closed`, or `--to` one bar back); repair with `--truncate` |
+| `pyne data download` refuses a `--from` before the file's first bar | The file only grows at the end | `--truncate` and download again from the earlier date |
+| Binance download fails to resolve or connect | `api.binance.com` unreachable from this network | `[binance]` table in `config/plugins/ccxt.toml` with `urls.api.public = "https://data-api.binance.vision/api/v3"` (public spot data, no keys) |
 | Logo and spinner pollute captured output | CLI decorations | `PYNE_NO_LOGO=1`, `NO_COLOR=1` |
 | `.toml` next to the script keeps changing in git | Rewritten on every import | Commit it once; set `PYNE_SAVE_SCRIPT_TOML=0` in CI |
 | Editor shows many red errors on `close[1]` | Static type checker false positives | Add the `pyrightconfig.json` from [language.md](language.md); PyCharm needs nothing |

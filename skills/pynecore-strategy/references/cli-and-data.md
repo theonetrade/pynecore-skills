@@ -7,6 +7,7 @@
 - [`pyne run`](#pyne-run)
 - [Chart timeframe and bar magnifier](#chart-timeframe-and-bar-magnifier)
 - [Getting data](#getting-data)
+- [Candle cache: download once, update, run offline](#candle-cache-download-once-update-run-offline)
 - [Symbol info (`data/<name>.toml`)](#symbol-info-datanametoml)
 - [Output files](#output-files)
 - [Other commands](#other-commands)
@@ -102,7 +103,11 @@ in `output/`).
   into `.ohlcv` + `.toml` next to the source, with the symbol guessed from the filename
   (`BTCUSDT.csv`, `BINANCE_ETHUSDT_1h.csv`, `EUR_USD.csv`);
 - a provider string `provider:EXCHANGE:SYMBOL[:SETTLE]@TIMEFRAME`, for example
-  `ccxt:BYBIT:BTC/USDT:USDT@1D` or `ccxt:BINANCE:ETH/USDT@240`, which downloads first.
+  `ccxt:BYBIT:BTC/USDT:USDT@1D` or `ccxt:BINANCE:ETH/USDT@240`. This downloads the last 500
+  bars (`-f -500`, or a date / `-f -N`) right before the run, **again on every run**, and
+  refreshes the symbol info from the venue. It is for live mode and one-off fresh runs; for
+  backtests download once and pass the file name (see
+  [Candle cache](#candle-cache-download-once-update-run-offline)).
 
 Always pass `PYNE_NO_LOGO=1` (or `PYNE_QUIET=1`) in automated runs to keep output parseable.
 
@@ -153,9 +158,11 @@ pyne data download ccxt:BYBIT:BTC/USDT:USDT@1D --symbol-info    # show the deriv
 Timeframes are PyneCore strings: minutes as a number (`1`, `5`, `15`, `60`, `240`), `1D`, `1W`,
 `1M`. The default `--from` is `continue` (resume from the last stored bar, or one year back
 when nothing is stored). Files land in `data/` as
-`ccxt_BYBIT_BTC_USDT_USDT_1D.ohlcv` + `.toml`. Provider list: `pyne plugin list`; the built-in
-`ccxt` provider needs the `ccxt` extra. Other providers (Capital.com, cTrader, Bybit broker,
-...) are separate plugins.
+`ccxt_BYBIT_BTC_USDT_USDT_1D.ohlcv` + `.toml`; they are the candle cache described in the
+[next section](#candle-cache-download-once-update-run-offline), which also covers this skill's
+`download_candles.py`. Provider list: `pyne plugin list`; the built-in `ccxt` provider needs
+the `ccxt` extra. Other providers (Capital.com, cTrader, Bybit broker, ...) are separate
+plugins.
 
 ### Convert your own CSV / JSON / TXT
 
@@ -213,6 +220,110 @@ pyne data map "BINANCE:BTCUSDT" "ccxt:BYBIT:BTC/USDT:USDT"
 
 Writes `config/symbol_map.toml` so `request.security("BINANCE:BTCUSDT", ...)` finds the data
 without a `--security` flag. See [multi-timeframe.md](multi-timeframe.md).
+
+## Candle cache: download once, update, run offline
+
+The pair `data/<name>.ohlcv` + `data/<name>.toml` **is** the candle cache. PyneCore never
+refreshes it behind your back: a run on a file name reads only the file, and a download only
+appends to it. (The workdir's `cache/` folder is unrelated: runtime state such as auth
+sessions.)
+
+```bash
+pyne data download ccxt:BINANCE:BTC/USDT@60 --from 2024-01-01   # once: data/ccxt_BINANCE_BTC_USDT_60.ohlcv + .toml
+pyne data download ccxt:BINANCE:BTC/USDT@60                     # later: appends the bars after the last stored one
+pyne data download data/ccxt_BINANCE_BTC_USDT_60.ohlcv          # the same, by path ([download] section of the .toml)
+pyne run my_strategy ccxt_BINANCE_BTC_USDT_60                   # backtest: offline, no exchange call
+pyne data download ccxt:BINANCE:BTC/USDT@60 --truncate --from 2022-01-01   # extend backwards = download again
+```
+
+Rules (verified on PyneCore 6.12):
+
+- **`--from` defaults to `continue`.** The download restarts at the last stored bar (the
+  overlap is dropped) and with no file yet goes one year back. A `--from` before the first
+  stored bar cannot be appended in front; the CLI asks for confirmation and truncates, because
+  the writer only appends.
+- **Only `pyne data download` (and this skill's `download_candles.py`) feed the cache.
+  `pyne run SCRIPT ccxt:...` bypasses it**: provider mode downloads the bars again on every run
+  (500 by default) and re-fetches the symbol info. Backtests and sweeps always run on the file
+  name.
+- **A bar stored while still forming is never fixed.** `pyne data download` ends at "now", so
+  run in the middle of a bar it stores that bar with partial values; the next `continue` skips
+  everything up to the last stored timestamp and leaves it as is (checked with 1-minute bars:
+  the stored close and volume stayed at their download-time values while the exchange's final
+  bar differed). Download up to the previous bar close (`--to` one bar back) or use
+  `download_candles.py`, whose default `--to closed` does exactly that. `--truncate` is the
+  only repair.
+- **One file per symbol and timeframe.** `request.security()` contexts need their own files
+  (`--security "1D=ccxt_BINANCE_BTC_USDT_1D"`, or the symbol map); a higher timeframe can be
+  built locally with `pyne data aggregate <name> -tf 240` instead of a second download.
+- **Check the cache without network**: `download_candles.py SYMBOL -tf TF --status`, or
+  `OHLCVReader(path)` (`size`, `start_datetime`, `end_datetime`, `period`, `dense`);
+  `record_count(path)` answers from the header and returns 0 for a missing or broken file.
+- **Git**: ignore `data/*.ohlcv` (binary, regenerable), keep `data/*.toml`: its `[download]`
+  section lets anyone recreate the file with `pyne data download data/<name>.toml`.
+
+### `download_candles.py` (this skill)
+
+```bash
+<python> <skill>/scripts/download_candles.py BTC/USDT ETH/USDT -tf 60 --from 2024-01-01   # Binance spot, two files
+<python> <skill>/scripts/download_candles.py BTC/USDT -tf 60                              # update: continue, closed bars only
+<python> <skill>/scripts/download_candles.py BTC/USDT -tf 60 --status [--json]            # cache state, bars missing, forming bar
+<python> <skill>/scripts/download_candles.py BTC/USDT:USDT -tf 15 --exchange bybit        # perpetual on another exchange
+<python> <skill>/scripts/download_candles.py --list-symbols USDT                           # valid symbol names
+<python> <skill>/scripts/download_candles.py BTC/USDT -tf 60 --truncate --from 2022-01-01 # start over from an earlier date
+```
+
+Same files and names as the CLI, so `pyne run`, `run_backtest.py` and `pyne data download` by
+path all work on the result. Non-interactive: a start before the file is an error with the
+`--truncate` hint (exit 1), several symbols per call, JSON output. Symbols are CCXT unified
+names (`BTC/USDT`, `BTC/USDT:USDT`); an unknown one fails before anything is written. `<python>`
+is the project interpreter with `pynesys-pynecore[ccxt]`; `--help` documents every argument.
+
+### Binance without `api.binance.com`
+
+Binance serves the same public spot candles, without keys, at `https://data-api.binance.vision`.
+When the main host is not reachable from the network, point the CCXT client there in
+`config/plugins/ccxt.toml`; an exchange table in that file is passed to the CCXT constructor as
+is, and both the CLI and `download_candles.py` read it:
+
+```toml
+[binance]
+enableRateLimit = true
+urls = { api = { public = "https://data-api.binance.vision/api/v3" } }
+options = { fetchMarkets = { types = ["spot"] } }    # that host has no futures markets
+```
+
+### From Python
+
+```python
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from pynecore.core.config import ensure_config
+from pynecore.core.download_runner import DownloadConflictError, download_to_file
+from pynecore.core.ohlcv import OHLCVReader, record_count
+from pynecore.providers.ccxt import CCXTConfig, CCXTProvider
+
+workdir = Path(".")
+config = ensure_config(CCXTConfig, workdir / "config" / "plugins" / "ccxt.toml")   # folder must exist
+provider = CCXTProvider(symbol="binance:BTC/USDT", timeframe="60", ohlcv_dir=workdir / "data", config=config)
+syminfo = provider.get_symbol_info()                 # .toml from disk; fetched and saved on first use
+closed = datetime.now(timezone.utc) - timedelta(hours=1)   # last closed hourly bar; "now" would store the forming one
+try:
+    result = download_to_file(provider, time_from="continue", time_to=closed, syminfo=syminfo,
+                              on_conflict="abort", provider_string="ccxt:BINANCE:BTC/USDT@60")
+except DownloadConflictError as e:      # only with an explicit time_from before the file's first bar
+    raise SystemExit(e)
+print(result.bars_written, "new bars in", result.ohlcv_path)
+
+if record_count(result.ohlcv_path):
+    with OHLCVReader(result.ohlcv_path) as reader:
+        print(reader.size, reader.start_datetime, reader.end_datetime, reader.period, reader.dense)
+```
+
+`time_from` is `"continue"` or a datetime; `truncate=True` empties the file first;
+`on_conflict="abort"` raises instead of truncating. The whole flow is what
+`download_candles.py` wraps.
 
 ## Symbol info (`data/<name>.toml`)
 
