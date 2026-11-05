@@ -1,0 +1,70 @@
+"""
+FreqTrade strategy that uses PyneCore indicator scripts as data sources.
+
+Pattern 1 of the FreqTrade integration: PyneCore computes the indicators (any script that
+plots values), the entry/exit rules stay in FreqTrade's own DataFrame logic.
+
+Install into user_data/strategies/ together with pynecore_bridge.py and a scripts/ folder:
+
+    user_data/strategies/
+    ├── freqtrade_indicators_strategy.py
+    ├── pynecore_bridge.py
+    └── scripts/
+        ├── rsi.py
+        └── bollinger.py
+
+    pip install "pynesys-pynecore>=6.12"
+    freqtrade backtesting --strategy PyneIndicatorStrategy
+
+populate_indicators() receives the full DataFrame on every new candle; the bridge re-runs the
+scripts over all of it, which is both correct (the scripts are stateful) and cheap.
+"""
+from pathlib import Path
+
+import pandas as pd
+
+try:
+    from freqtrade.strategy import IStrategy
+except ImportError as exc:  # pragma: no cover
+    raise ImportError("FreqTrade is not installed; this file runs inside FreqTrade") from exc
+
+from pynecore_bridge import run_indicator
+
+SCRIPTS_DIR = Path(__file__).parent / "scripts"
+
+
+class PyneIndicatorStrategy(IStrategy):
+    INTERFACE_VERSION = 3
+
+    timeframe = "1h"
+    startup_candle_count = 100          # at least the longest lookback of the scripts
+    minimal_roi = {"0": 0.10, "60": 0.05, "120": 0.02}
+    stoploss = -0.05
+    can_short = False
+
+    def populate_indicators(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+        pair = metadata.get("pair", "BTC/USDT")
+
+        rsi = run_indicator(dataframe, SCRIPTS_DIR / "rsi.py", pair=pair, timeframe=self.timeframe,
+                            inputs={"length": 14})
+        dataframe["rsi"] = rsi.get("RSI")
+
+        bb = run_indicator(dataframe, SCRIPTS_DIR / "bollinger.py", pair=pair, timeframe=self.timeframe)
+        dataframe["bb_upper"] = bb.get("Upper")
+        dataframe["bb_basis"] = bb.get("Basis")
+        dataframe["bb_lower"] = bb.get("Lower")
+        return dataframe
+
+    def populate_entry_trend(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+        dataframe.loc[
+            (dataframe["rsi"] < 30) & (dataframe["close"] <= dataframe["bb_lower"] * 1.01),
+            "enter_long",
+        ] = 1
+        return dataframe
+
+    def populate_exit_trend(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+        dataframe.loc[
+            (dataframe["rsi"] > 70) & (dataframe["close"] >= dataframe["bb_upper"] * 0.99),
+            "exit_long",
+        ] = 1
+        return dataframe
