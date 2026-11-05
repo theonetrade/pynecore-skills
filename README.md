@@ -4,6 +4,10 @@ Agent skills for building trading strategies with [PyneCore](https://pynecore.or
 scripts marked `@pyne`, executed bar by bar with series history, persistent state and a
 broker emulator, run through the `pyne` CLI, the `ScriptRunner` API or the PyneIDE editor.
 
+```bash
+npx skills add theonetrade/pynecore-skills --skill '*'
+```
+
 The skills are **self-contained and global**. Install once, use in every project: no
 per-project `AGENTS.md`, `CLAUDE.md`, `.agents/`, `.claude/` or `.cursor/` folders and no files
 with machine-specific paths. Each skill discovers the project's workdir, interpreter, CLI,
