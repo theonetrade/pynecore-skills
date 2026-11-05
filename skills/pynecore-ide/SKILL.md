@@ -146,5 +146,6 @@ Never claim a chart looked right or a breakpoint paused somewhere you did not ob
 | `references/commands-and-settings.md` | Every PyneIDE command (title + id) and setting with defaults |
 | `references/project-files.md` | What each generated file contains, what to edit, `.gitignore` recommendations, snippet prefixes |
 
-Writing the scripts themselves is the `pynecore-strategy` skill; the PyneCore documentation
-is bundled in the `pynecore-docs` skill.
+Writing the scripts themselves is the `pynecore-strategy` skill; the `pyne` CLI (every command,
+option and environment variable) is the `pynecore-cli` skill; the PyneCore documentation is
+bundled in the `pynecore-docs` skill.

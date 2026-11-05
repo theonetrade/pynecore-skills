@@ -19,6 +19,7 @@ editor state and local documentation at the start of a task.
 |-------|----------------|
 | [`pynecore-strategy`](skills/pynecore-strategy/SKILL.md) | Writing, backtesting, debugging, optimizing and deploying PyneCore strategies and indicators; language rules; strategy API; CLI and data; `ScriptRunner`; multi-timeframe; live mode; FreqTrade and DataFrame integration; scaffolding, backtest and report tools |
 | [`pynecore-ide`](skills/pynecore-ide/SKILL.md) | Working in a project initialized by PyneIDE (the VS Code extension): the managed environment and how an agent shell reaches it, the files the IDE writes into a project (and which of them are disposable boilerplate), editor commands for run / debug / profile / inputs / chart / data, evidence reporting |
+| [`pynecore-cli`](skills/pynecore-cli/SKILL.md) | The `pyne` command-line interface shipped with PyneCore, as installed: every command and option with its value format (`run`, `data download / convert-from / convert-to / aggregate / map`, `plugin`, `debug ast`, `benchmark`, `broker resume`, the `--recreate-*` global options), workdir discovery and what each call creates, `PYNE_*` variables, prompts and exit codes in non-interactive shells, and a script that checks the installed CLI against the reference |
 | [`pynecore-docs`](skills/pynecore-docs/SKILL.md) | The complete PyneCore documentation bundled in this repository (offline), a topic map and page inventory, grep/print tools, a version check against the installed runtime, and a sync script that refreshes the snapshot from a PyneCore release |
 
 ## Install
@@ -156,6 +157,11 @@ skills/
 │   ├── SKILL.md                      # PyneIDE project workflow
 │   ├── references/                   # commands-and-settings, project-files
 │   └── scripts/ide_env.py            # verify / create the workdir structure PyneIDE requires
+├── pynecore-cli/
+│   ├── SKILL.md                      # the pyne CLI: rules for agent shells, workdir, command map, recipes
+│   ├── references/                   # commands (every option and value format), environment (PYNE_* variables,
+│   │                                 # files, prompts, exit codes, logging)
+│   └── scripts/cli_help.py           # locate pyne, dump every --help, check the reference against the installed CLI
 └── pynecore-docs/
     ├── SKILL.md                      # offline documentation lookup
     ├── docs/                         # PyneCore documentation snapshot (MANIFEST.json, LICENSE, NOTICE, pages)

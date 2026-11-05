@@ -187,6 +187,7 @@ symptom-to-fix tables.
 | All 67 `ta.*` functions with signatures | `references/ta.md` |
 | Bar data, time/session functions, `math`, `array`/`map`, `string`, `barstate`, `timeframe`, `syminfo`, plots, drawings, `log` | `references/lib.md` |
 | Workdir, `pyne run` options, data download/convert/aggregate, the candle cache (`continue`, forming bars, provider mode), symbol `.toml`, bar magnifier, outputs | `references/cli-and-data.md` |
+| The exact format of any `pyne` option, exit codes, prompts in non-interactive shells, `PYNE_*` variables, what each call creates in the workdir | the `pynecore-cli` skill (`references/commands.md`, `references/environment.md`) |
 | `ScriptRunner`, `OHLCV`, `SymInfo`, standalone scripts, trades, sweeps | `references/programmatic.md` |
 | `request.security`, lookahead modes, security data, symbol map | `references/multi-timeframe.md` |
 | Live mode, broker plugins, DataFrame bridge, FreqTrade, notifications | `references/live-and-integrations.md` |
