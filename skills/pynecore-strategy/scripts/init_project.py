@@ -85,7 +85,7 @@ DIRS = ("scripts", "scripts/lib", "data", "config", "config/plugins", "output", 
 
 
 def log(msg: str) -> None:
-    print(f"[init] {msg}")
+    print(f"[init] {msg}", flush=True)   # keep order with the subprocess output when piped
 
 
 def create_layout(root: Path) -> list[str]:
@@ -266,6 +266,10 @@ def main() -> int:
         log(f"environment ready: {py} (pynesys-pynecore {version})")
         if not args.no_demo:
             create_demo(root, pyne)
+    else:
+        existing = venv_python(root)                  # --no-env on a project that already has one
+        if existing is not None and (existing.parent / "pyne").exists():
+            pyne = existing.parent / "pyne"
     for spec in args.template or []:
         add_template(root, spec, created)
     if args.smoke:

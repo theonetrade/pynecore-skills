@@ -47,11 +47,11 @@ def read_manifest(docs: Path) -> dict:
 def installed_runtime_version(root: Path) -> dict | None:
     code = "import importlib.metadata as m; print(m.version('pynesys-pynecore'))"
     candidates: list[str] = []
+    for name in VENV_CANDIDATES:                      # the project's own environment first
+        candidates.append(str(root / name / "bin" / "python"))
     active = os.environ.get("VIRTUAL_ENV")
     if active:
         candidates.append(str(Path(active) / "bin" / "python"))
-    for name in VENV_CANDIDATES:
-        candidates.append(str(root / name / "bin" / "python"))
     for exe in ("python3", "python"):
         w = shutil.which(exe)
         if w:
@@ -122,9 +122,9 @@ def main() -> int:
                              "(reference/, cli/, ...), for example a PyneCore checkout's docs/.\n"
                              "Default: the snapshot bundled in this skill (<skill>/docs)")
     parser.add_argument("--root", default=".", metavar="DIR",
-                        help="project folder whose virtual environment ($VIRTUAL_ENV, .venv, venv, env) or PATH python\n"
-                             "is asked for the installed pynesys-pynecore version, shown next to the documented one.\n"
-                             "Default: the current directory")
+                        help="project folder whose virtual environment (.venv, venv, env; then $VIRTUAL_ENV, then PATH\n"
+                             "python) is asked for the installed pynesys-pynecore version, shown next to the documented\n"
+                             "one. Default: the current directory")
     parser.add_argument("--list", action="store_true",
                         help="print every page as REL_PATH followed by its title, one per line")
     parser.add_argument("--grep", metavar="REGEX",

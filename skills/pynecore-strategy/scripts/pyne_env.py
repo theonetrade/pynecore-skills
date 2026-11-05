@@ -21,8 +21,8 @@ or a `workdir/` child of the project:
 
 The report lists what is present and missing in that layout, the scripts with their role, the
 data files with symbol and timeframe, the configured plugins, and the interpreter that can
-import `pynecore` (`$VIRTUAL_ENV`, `.venv`, `venv`, `env`, then PATH) with its `pyne` command,
-ending with a ready-to-run `pyne run` line.
+import `pynecore` (the project's `.venv`, `venv` or `env` first, then `$VIRTUAL_ENV`, then PATH)
+with its `pyne` command, ending with a ready-to-run `pyne run` line.
 """
 from __future__ import annotations
 
@@ -189,11 +189,7 @@ def find_python(root: Path, workdir: Path | None) -> list[dict]:
             info.update({"python": key, "how": how})
             found.append(info)
 
-    active = os.environ.get("VIRTUAL_ENV")
-    if active:
-        py = python_in_venv(Path(active))
-        if py:
-            consider(py, "VIRTUAL_ENV")
+    # the project's own environments come first: an activated venv of another project must not win
     bases = [root]
     if workdir and workdir != root:
         bases += [workdir, workdir.parent]
@@ -202,6 +198,11 @@ def find_python(root: Path, workdir: Path | None) -> list[dict]:
             py = python_in_venv(base / name)
             if py:
                 consider(py, f"{name} under {base}")
+    active = os.environ.get("VIRTUAL_ENV")
+    if active:
+        py = python_in_venv(Path(active))
+        if py:
+            consider(py, "VIRTUAL_ENV (activated shell environment)")
     for exe in ("python3", "python"):
         which = shutil.which(exe)
         if which:
