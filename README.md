@@ -67,7 +67,10 @@ the skills versioned with a repository.
   The strategy skill can create one.
 
 Nothing else is required: the documentation is part of the repository, and the skills inspect
-only the target project. `skills/pynecore-strategy/scripts/pyne_env.py` reports a project's
+only the target project. `skills/pynecore-strategy/scripts/init_project.py <dir>` creates a
+complete new project (workdir layout, `.venv` with PyneCore through `uv` or `pip`, demo script
+and data, `pyrightconfig.json`, `.gitignore`; no agent or editor files);
+`skills/pynecore-strategy/scripts/pyne_env.py` reports an existing project's structure,
 interpreter, CLI, scripts and data; `skills/pynecore-ide/scripts/ide_env.py` verifies (or
 creates with `--create`) the workdir structure PyneIDE and the CLI expect.
 
@@ -134,7 +137,7 @@ skills/
 │   ├── references/                   # language, strategy-api, inputs-and-settings, ta, lib,
 │   │                                 # cli-and-data, programmatic, multi-timeframe,
 │   │                                 # live-and-integrations, patterns, pitfalls
-│   ├── scripts/                      # pyne_env.py, new_script.py, run_backtest.py, summarize_backtest.py
+│   ├── scripts/                      # init_project.py, pyne_env.py, new_script.py, run_backtest.py, summarize_backtest.py
 │   └── templates/                    # minimal_cli.py + minimal_cli_indicator.py (workdir-only), full strategy/indicator
 │                                     # (standalone-runnable), library, DataFrame bridge, FreqTrade x2,
 │                                     # live CCXT, custom feed

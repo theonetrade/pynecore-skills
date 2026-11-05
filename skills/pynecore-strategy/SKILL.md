@@ -29,9 +29,15 @@ Rules that follow from it:
 - Call the CLI by its resolved path (`<venv>/bin/pyne`, or `uv run pyne` in a uv project) and
   run Python tooling with the same interpreter. The agent shell does not have the venv active.
 - Always set `PYNE_NO_LOGO=1` (and `NO_COLOR=1` when parsing output) on CLI calls.
-- No workdir: create one non-interactively
-  (`mkdir -p workdir/scripts/lib workdir/data workdir/output workdir/config && printf 'workdir_version = "1.0"\n' > workdir/.pyne`)
-  or pass `--workdir`. No PyneCore: `pip install "pynesys-pynecore[cli,ccxt]"` (or `uv add ...`).
+- No project yet, or no PyneCore installed: `python3 <skill>/scripts/init_project.py <dir> --smoke`
+  builds the whole thing in one go: the workdir layout (`.pyne`, `scripts/lib`, `data`, `config`
+  with `.gitignore` and `api.toml`, `output/logs`, `cache`), `pyproject.toml` + `.venv` with
+  `pynesys-pynecore[cli,ccxt]` (via `uv sync`, or `venv` + `pip`), the demo script and demo
+  data, `pyrightconfig.json` and `.gitignore`. No agent or editor files are written. Add
+  `--template minimal:<name>` to start from a strategy template right away.
+- Existing project without a workdir: `mkdir -p scripts/lib data config/plugins output/logs cache && printf 'workdir_version = "1.0"\n' > .pyne`
+  (or `pyne_env.py` prints the exact fix). No PyneCore in an existing environment:
+  `pip install "pynesys-pynecore[cli,ccxt]"` or `uv add "pynesys-pynecore[cli,ccxt]"`.
 - No data: `pyne --recreate-demo plugin list` creates `data/demo.ohlcv` (2000 synthetic daily
   bars) for smoke tests; real data comes from `pyne data download ccxt:BYBIT:BTC/USDT:USDT@1D` or
   `pyne data convert-from file.csv`. **Open the generated `data/<name>.toml` and check
@@ -177,7 +183,8 @@ symptom-to-fix tables.
 
 | File | Use |
 |------|-----|
-| `scripts/pyne_env.py` | Discover workdir, interpreter, CLI, scripts, data, local docs (stdlib) |
+| `scripts/init_project.py` | Create a complete project: workdir layout, `.venv` with PyneCore (uv or pip), demo script and data, `pyrightconfig.json`, `.gitignore`; optional template and smoke test (stdlib) |
+| `scripts/pyne_env.py` | Probe an existing project: workdir structure, scripts, data, config, interpreter, CLI (stdlib) |
 | `scripts/new_script.py` | Scaffold a strategy / indicator / library / minimal workdir script; `--cli-only` strips the standalone bootstrap (stdlib) |
 | `scripts/run_backtest.py` | Backtest with overrides, date range, CSV conversion, sweeps, JSON (needs the project interpreter) |
 | `scripts/summarize_backtest.py` | Turn `_strat.csv` + `_trade.csv` into a short report with warnings (stdlib) |

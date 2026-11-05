@@ -44,6 +44,10 @@ Or let the CLI build a complete one with a demo script and demo data:
 pyne --workdir ./workdir --recreate-demo plugin list
 ```
 
+Or, for a brand-new project including the Python environment, use this skill's
+`scripts/init_project.py <dir> --smoke` (layout, `pyproject.toml` + `.venv` with PyneCore, demo,
+`pyrightconfig.json`, `.gitignore`; no agent or editor files).
+
 The demo is `scripts/demo.py` on `data/demo.ohlcv` (2000 synthetic daily bars, 24/7). It is the
 quickest smoke test for a new strategy: `pyne run my_strategy demo`.
 
