@@ -1,11 +1,13 @@
 # pynecore-skills
 
+[![skills.sh](https://skills.sh/b/theonetrade/pynecore-skills)](https://skills.sh/theonetrade/pynecore-skills)
+
 Agent skills for building trading strategies with [PyneCore](https://pynecore.org): Python
 scripts marked `@pyne`, executed bar by bar with series history, persistent state and a
 broker emulator, run through the `pyne` CLI, the `ScriptRunner` API or the PyneIDE editor.
 
 ```bash
-npx skills add theonetrade/pynecore-skills --skill '*'
+npx skills add theonetrade/pynecore-skills
 ```
 
 The skills are **self-contained and global**. Install once, use in every project: no
