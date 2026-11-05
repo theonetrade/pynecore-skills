@@ -18,7 +18,10 @@ The CLI is a thin wrapper around the same classes.
 
 ## Standalone execution of a script file
 
-Append this to any script and it runs on a data file without a workdir or the CLI:
+A workdir script needs nothing beyond the `@pyne` docstring, the imports and the decorated
+`main()`; `pyne run` and the IDE execute it. The bootstrap below is optional and only adds a
+second way to run the same file. Append it to any script and it runs on a data file without a
+workdir or the CLI:
 
 ```python
 if __name__ == "__main__":

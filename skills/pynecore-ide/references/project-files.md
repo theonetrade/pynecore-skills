@@ -16,22 +16,36 @@ What **Initialize Pyne Project** creates, what each file is for, and what an age
 
 ```
 <workspace>/
-├── .pyne                      # workdir marker (workdir_version = "1.0"); the workspace is the workdir
-├── scripts/                   # Pyne scripts; demo.py; <name>.toml settings; lib/ for libraries
+├── .pyne                      # workdir marker; the workspace is the workdir
+├── scripts/                   # Pyne scripts; demo.py; <name>.toml settings
+│   └── lib/                   # libraries (empty at first)
 ├── data/                      # demo.ohlcv + demo.toml; downloaded/converted data
-├── output/                    # run outputs (csv, ndjson, profile json), logs/
-├── config/                    # plugins/<plugin>.toml (provider settings/keys), symbol_map.toml
+├── config/
+│   ├── .gitignore             # "*" + "!.gitignore": nothing in config/ is versioned (keys live here)
+│   ├── api.toml               # [api] api_key = "" / timeout = 30 (cloud compiler service; unused for Pyne)
+│   └── plugins/               # ccxt.toml, replay.toml, ... one per installed provider/broker plugin
+├── output/                    # run outputs (csv, ndjson, profile json)
+│   └── logs/
 ├── cache/
+├── pyrightconfig.json         # type-checker relaxations for Series
 ├── .pyneide/                  # managed environment (venv/, env.json), gitignored
 ├── .vscode/settings.json      # pyneide.workdir, interpreter, files.exclude
 ├── .vscode/pyne.code-snippets # editor snippets
-├── pyrightconfig.json         # type-checker relaxations for Series
 └── AGENTS.md, CLAUDE.md, AGENT_RULES.md, .agents/, .claude/, .cursor/
                                # per-project agent boilerplate; replaced by these global skills
 ```
 
+`.pyne` contains:
+
+```toml
+# PyneCore workdir marker. The version refers to the workdir structure, not your project.
+workdir_version = "1.0"
+```
+
 `pyneide.workdir` may point elsewhere (for example `workdir/`); then the workdir files live
-there and the workspace root keeps only the editor files.
+there and the workspace root keeps only the editor files. `scripts/ide_env.py --create`
+reproduces the workdir part of this layout (marker, folders, `config/.gitignore`,
+`config/api.toml`) without touching existing files.
 
 ## Workdir files
 
@@ -49,7 +63,8 @@ there and the workspace root keeps only the editor files.
 | `config/plugins/ccxt.toml` | CCXT provider: `apiKey`, `secret`, `password`, `sandbox`, `default_type` (`spot`/`swap`/`future`/`margin`), `symbol_map` | yes; never commit keys |
 | `config/plugins/replay.toml` | Replay provider fixture path (tests) | rarely |
 | `config/symbol_map.toml` | `request.security()` symbol translations (**Edit Symbol Map**) | yes |
-| `config/api.toml` | API key for an optional cloud compiler service; not needed for Pyne scripts | leave |
+| `config/api.toml` | `[api] api_key = "" / timeout = 30`; key for an optional cloud compiler service; not needed for Pyne scripts | leave |
+| `config/.gitignore` | `*` and `!.gitignore`: keeps every config file (and the keys in `plugins/`) out of git | keep |
 
 ## Environment: `.pyneide/`
 
@@ -91,20 +106,26 @@ environment):
 }
 ```
 
-`pyrightconfig.json`:
+`pyrightconfig.json` as PyneIDE writes it for a managed environment:
 
 ```json
 {
-  "venvPath": ".", "venv": ".venv",
-  "extraPaths": ["scripts/lib"],
   "typeCheckingMode": "basic",
+  "enableReachabilityAnalysis": false,
+  "defineConstant": { "TYPECHECKER": "pyright", "PYNEIDE": true },
   "reportIndexIssue": "none",
-  "reportAssignmentType": "none",
   "reportRedeclaration": "none",
-  "reportArgumentType": "none",
-  "defineConstant": { "TYPECHECKER": "pyright" }
+  "pythonVersion": "3.14",
+  "exclude": ["data", "output", "**/__pycache__", ".pyneide"],
+  "ignore": [".pyneide"],
+  "venvPath": "<absolute path of the workspace>/.pyneide",
+  "venv": "venv"
 }
 ```
+
+A hand-written equivalent for a project with its own `.venv` adds `"extraPaths": ["scripts/lib"]`,
+`"reportAssignmentType": "none"`, `"reportArgumentType": "none"` and points `venvPath`/`venv` at
+that environment.
 
 These make `close[1]` and other Series idioms type-check; without them Pylance reports false
 errors. PyneIDE's own analysis (bundled pyright + Pyne checker) replaces Pylance in Pyne

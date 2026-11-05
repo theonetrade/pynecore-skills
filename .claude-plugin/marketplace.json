@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "pynecore-skills",
+  "description": "PyneCore trading-strategy skills for coding agents",
+  "owner": {
+    "name": "TheOneTrade"
+  },
+  "plugins": [
+    {
+      "name": "pynecore-skills",
+      "description": "Build, backtest and deploy PyneCore (Pyne) trading strategies and indicators in Python; work in PyneIDE projects; read the bundled PyneCore docs offline.",
+      "author": {
+        "name": "TheOneTrade"
+      },
+      "category": "development",
+      "source": "./",
+      "homepage": "https://github.com/theonetrade/pynecore-skills"
+    }
+  ]
+}

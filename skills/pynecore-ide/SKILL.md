@@ -11,17 +11,29 @@ UI tools, so this skill tells you how to reach the IDE's environment from a shel
 commands to name when the user works in the editor, what the IDE writes into the project, and
 how to report evidence honestly. Nothing outside the project folder is consulted.
 
-## 1. Recognize the project and read its state
+## 1. The project structure PyneIDE requires
 
-Markers: a `.pyneide/` folder (managed environment, `env.json`) or `pyneide.*` keys in the
-project's `.vscode/settings.json`.
+PyneIDE works on a PyneCore workdir and expects this layout (the project folder itself when it
+holds the `.pyne` marker, otherwise a `workdir/` child):
 
-```bash
-python3 <skill>/scripts/ide_env.py            # report; --json for machine-readable
+```
+.pyne                 # marker: workdir_version = "1.0"
+scripts/  scripts/lib/
+data/                 # <name>.ohlcv + <name>.toml pairs
+config/               # .gitignore (*), api.toml, plugins/<plugin>.toml, symbol_map.toml
+output/  output/logs/
+cache/
 ```
 
-It prints the workdir, the interpreter PyneIDE uses (managed or user-provided), its PyneCore
-and debugpy versions, and the `pyne` path. That is everything a shell needs.
+```bash
+python3 <skill>/scripts/ide_env.py             # verify the structure, list scripts/data/config
+python3 <skill>/scripts/ide_env.py --create    # add whatever is missing, never overwrite
+python3 <skill>/scripts/ide_env.py --json
+```
+
+Exit code 1 means a required folder or the marker is missing; `--create` makes the folder a
+valid workdir for both the IDE and the CLI. A missing `data/<name>.toml` next to an `.ohlcv`
+file or an unconverted CSV is reported too. The script reads only the project folder.
 
 ## 2. The environment and how to reach it
 
@@ -129,7 +141,7 @@ Never claim a chart looked right or a breakpoint paused somewhere you did not ob
 
 | File | Use |
 |------|-----|
-| `scripts/ide_env.py` | Detect a PyneIDE project and print its environment (stdlib; reads only `.pyneide/` and `.vscode/settings.json`) |
+| `scripts/ide_env.py` | Verify or create the workdir structure PyneIDE requires; lists scripts, data pairs, config, output (stdlib; reads only the project folder) |
 | `references/commands-and-settings.md` | Every PyneIDE command (title + id) and setting with defaults |
 | `references/project-files.md` | What each generated file contains, what to edit, `.gitignore` recommendations, snippet prefixes |
 

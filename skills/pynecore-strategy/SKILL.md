@@ -46,8 +46,16 @@ Rules that follow from it:
    long/short permissions, costs. Ask only when the ambiguity changes the code materially;
    otherwise choose sensible defaults and state them.
 2. **Scaffold**: `python3 <skill>/scripts/new_script.py <name> --kind strategy --title "..."`
-   copies `templates/strategy_template.py` into `scripts/`. For a one-off experiment outside a
-   workdir, copy the template anywhere; it is standalone-runnable (`python my.py data.csv`).
+   copies `templates/strategy_template.py` into `scripts/`. Two flavours of script exist:
+   - **Workdir script** (the normal case, like `scripts/demo.py`): the `@pyne` docstring,
+     imports, decorated `main()`, nothing else; runs only through `pyne run <name> <data>` or
+     the IDE. `--cli-only` strips the full template down to this, and `--kind minimal` /
+     `--kind minimal-indicator` copy the compact `templates/minimal_cli.py` /
+     `templates/minimal_cli_indicator.py`.
+   - **Standalone script**: the same plus an optional inline dependency header and
+     `if __name__ == "__main__": from pynecore.standalone import run; run(__file__)`, so it
+     also runs as `python my.py data.csv` outside a workdir. The full templates ship this way;
+     `pyne run` executes them unchanged.
 3. **Write the script** following the structure `inputs -> indicators (every bar) -> filters ->
    signals -> sizing -> orders -> exits -> outputs`. Apply the language rules in section 3.
 4. **Run it** on data (section 4). A syntax check is not a result; the first run also writes
@@ -168,11 +176,13 @@ symptom-to-fix tables.
 | File | Use |
 |------|-----|
 | `scripts/pyne_env.py` | Discover workdir, interpreter, CLI, scripts, data, local docs (stdlib) |
-| `scripts/new_script.py` | Scaffold a strategy / indicator / library into the workdir (stdlib) |
+| `scripts/new_script.py` | Scaffold a strategy / indicator / library / minimal workdir script; `--cli-only` strips the standalone bootstrap (stdlib) |
 | `scripts/run_backtest.py` | Backtest with overrides, date range, CSV conversion, sweeps, JSON (needs the project interpreter) |
 | `scripts/summarize_backtest.py` | Turn `_strat.csv` + `_trade.csv` into a short report with warnings (stdlib) |
-| `templates/strategy_template.py` | Complete strategy: EMA cross + trend filter, ATR stop/target, risk sizing, trailing, time stop, plots, logs |
-| `templates/indicator_template.py` | Indicator with plots, markers, hlines, fill, returned dict |
+| `templates/minimal_cli.py` | Workdir-only strategy (EMA crossover, ATR stop/target, explicit sizing and costs); no bootstrap, runs only via `pyne run` / the IDE |
+| `templates/minimal_cli_indicator.py` | Workdir-only indicator (EMA crossover), the shape of `scripts/demo.py` |
+| `templates/strategy_template.py` | Complete strategy: EMA cross + trend filter, ATR stop/target, risk sizing, trailing, time stop, plots, logs; standalone-runnable |
+| `templates/indicator_template.py` | Indicator with plots, markers, hlines, fill, returned dict; standalone-runnable |
 | `templates/library_template.py` | Shared stateful helpers under `scripts/lib/` |
 | `templates/pynecore_bridge.py` | pandas DataFrame -> OHLCV, run indicator/strategy, back to Series |
 | `templates/freqtrade_indicators_strategy.py`, `templates/freqtrade_signals_strategy.py` | The two FreqTrade integration patterns |

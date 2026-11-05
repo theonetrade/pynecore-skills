@@ -8,6 +8,12 @@ Standard library only.
     python3 new_script.py rsi_bands --kind indicator
     python3 new_script.py utils --kind library --publisher mylib     # -> scripts/lib/mylib/utils/v1.py
     python3 new_script.py my_breakout --workdir /path/to/workdir --force
+    python3 new_script.py my_breakout --cli-only          # workdir script: no standalone bootstrap, no dependency header
+    python3 new_script.py ema_cross --kind minimal        # compact workdir strategy (CLI-only)
+    python3 new_script.py ema --kind minimal-indicator    # compact workdir indicator (CLI-only)
+
+Kinds: strategy / indicator (full templates, standalone-runnable unless --cli-only), library,
+minimal / minimal-indicator (compact workdir scripts that run only through `pyne run` or the IDE).
 
 The workdir is discovered like PyneCore does (a `.pyne` marker in the current directory or a
 parent, else a `workdir/` child); pass --workdir to override. Missing `scripts/`, `data/`,
@@ -24,7 +30,27 @@ TEMPLATES = {
     "strategy": ("strategy_template.py", "Strategy Template"),
     "indicator": ("indicator_template.py", "Indicator Template"),
     "library": ("library_template.py", "Library Template"),
+    "minimal": ("minimal_cli.py", "EMA Crossover Strategy"),
+    "minimal-indicator": ("minimal_cli_indicator.py", "EMA Crossover Demo"),
 }
+
+
+def strip_standalone(text: str) -> str:
+    """Remove the inline dependency header and the `if __name__ == "__main__":` bootstrap, leaving
+    a workdir-only script that runs through `pyne run` or the IDE."""
+    lines = text.splitlines()
+    if lines and lines[0].startswith("# /// script"):
+        end = next((i for i, line in enumerate(lines) if line.strip() == "# ///"), None)
+        if end is not None:
+            lines = lines[end + 1:]
+            while lines and not lines[0].strip():
+                lines.pop(0)
+    main_idx = next((i for i, line in enumerate(lines) if line.startswith('if __name__ == "__main__":')), None)
+    if main_idx is not None:
+        lines = lines[:main_idx]
+        while lines and not lines[-1].strip():
+            lines.pop()
+    return "\n".join(lines) + "\n"
 
 
 def find_workdir(start: Path) -> Path | None:
@@ -59,6 +85,8 @@ def main() -> int:
     parser.add_argument("--version", type=int, default=1, help="library version number (library kind)")
     parser.add_argument("--create", action="store_true", help="create the workdir structure when missing")
     parser.add_argument("--force", action="store_true", help="overwrite an existing file")
+    parser.add_argument("--cli-only", action="store_true",
+                        help="strip the standalone bootstrap and dependency header (workdir script for `pyne run` / the IDE)")
     args = parser.parse_args()
 
     if not re.fullmatch(r"[a-z_][a-z0-9_]*", args.name):
@@ -80,6 +108,8 @@ def main() -> int:
 
     title = args.title or args.name.replace("_", " ").title()
     text = template.read_text(encoding="utf-8").replace(default_title, title)
+    if args.cli_only:
+        text = strip_standalone(text)
 
     if args.kind == "library":
         dest = workdir / "scripts" / "lib" / args.publisher / args.name / f"v{args.version}.py"

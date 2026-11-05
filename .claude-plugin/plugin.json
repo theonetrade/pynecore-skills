@@ -1,0 +1,12 @@
+{
+  "name": "pynecore-skills",
+  "version": "0.2.0",
+  "description": "Skills for PyneCore (Pyne) trading-strategy development in Python: writing and backtesting strategies and indicators (language rules, strategy API, data and CLI, ScriptRunner, multi-timeframe, live mode, FreqTrade integration, scaffolding and backtest tools), working in PyneIDE projects (managed environment, generated files, editor commands), and offline lookup of the bundled PyneCore documentation.",
+  "author": {
+    "name": "TheOneTrade"
+  },
+  "homepage": "https://github.com/theonetrade/pynecore-skills",
+  "repository": "https://github.com/theonetrade/pynecore-skills",
+  "license": "MIT",
+  "keywords": ["pynecore", "pyne", "pyneide", "trading", "backtesting", "strategy", "indicator", "quant"]
+}
