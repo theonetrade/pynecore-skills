@@ -186,10 +186,18 @@ def print_report(root: Path, workdir: Path, how: str, r: dict, created: list[str
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--root", default=".", help="project folder (default: current directory)")
-    parser.add_argument("--create", action="store_true", help="create missing folders and files; existing files are never touched")
-    parser.add_argument("--json", action="store_true")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("--root", default=".", metavar="DIR",
+                        help="project folder to check; relative or absolute path. The workdir is DIR itself when it\n"
+                             "holds .pyne (or scripts/ and data/), else DIR/workdir when that exists, else DIR.\n"
+                             "Default: the current directory")
+    parser.add_argument("--create", action="store_true",
+                        help="create what is missing in the workdir: scripts/, data/, config/, output/, cache/,\n"
+                             "scripts/lib/, config/plugins/, output/logs/, the .pyne marker, config/.gitignore and\n"
+                             "config/api.toml. Existing files and folders are never modified or overwritten.")
+    parser.add_argument("--json", action="store_true",
+                        help="print one JSON object (root, workdir, found_by, created, marker, dirs, config, scripts,\n"
+                             "data, missing_required, missing_recommended, ...) instead of the text report")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()

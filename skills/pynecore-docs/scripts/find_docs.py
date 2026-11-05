@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 ONLINE_BASE = "https://pynecore.org/docs/"
-VENV_CANDIDATES = (".venv", "venv", ".pyneide/venv", "env")
+VENV_CANDIDATES = (".venv", "venv", "env")
 BUNDLED_DOCS = Path(__file__).resolve().parent.parent / "docs"
 MANIFEST_NAME = "MANIFEST.json"
 
@@ -116,16 +116,34 @@ def online_url(rel: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--docs", type=Path, default=BUNDLED_DOCS, help="docs folder (default: the bundled one)")
-    parser.add_argument("--root", default=".", help="project root used to find the installed runtime version")
-    parser.add_argument("--list", action="store_true", help="list every page with its title")
-    parser.add_argument("--grep", metavar="REGEX", help="search all pages, case-insensitive")
-    parser.add_argument("--context", type=int, default=0, help="lines of context for --grep")
-    parser.add_argument("--page", metavar="REL_PATH", help="resolve one page, e.g. reference/lib/ta.md")
-    parser.add_argument("--print", action="store_true", help="print the page given with --page")
-    parser.add_argument("--online", metavar="REL_PATH", help="print the online URL of a page")
-    parser.add_argument("--json", action="store_true")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("--docs", type=Path, default=BUNDLED_DOCS, metavar="DIR",
+                        help="documentation folder to use: a folder holding README.md and the section folders\n"
+                             "(reference/, cli/, ...), for example a PyneCore checkout's docs/.\n"
+                             "Default: the snapshot bundled in this skill (<skill>/docs)")
+    parser.add_argument("--root", default=".", metavar="DIR",
+                        help="project folder whose virtual environment ($VIRTUAL_ENV, .venv, venv, env) or PATH python\n"
+                             "is asked for the installed pynesys-pynecore version, shown next to the documented one.\n"
+                             "Default: the current directory")
+    parser.add_argument("--list", action="store_true",
+                        help="print every page as REL_PATH followed by its title, one per line")
+    parser.add_argument("--grep", metavar="REGEX",
+                        help="Python regular expression matched case-insensitively against every line of every page;\n"
+                             "escape regex characters (strategy\\.exit\\( ). Prints REL_PATH:LINE: text per hit;\n"
+                             "exit code 1 when nothing matches. Example: --grep \"lookahead_(on|off)\"")
+    parser.add_argument("--context", type=int, default=0, metavar="N",
+                        help="with --grep: also print N lines before and after each hit (integer >= 0). Default: 0")
+    parser.add_argument("--page", metavar="REL_PATH",
+                        help="one page given relative to the docs folder, e.g. reference/lib/ta.md or cli/run\n"
+                             "(the .md suffix may be omitted). Prints its absolute path; exit code 1 if absent.")
+    parser.add_argument("--print", action="store_true",
+                        help="with --page: print the page's Markdown content instead of its path")
+    parser.add_argument("--online", metavar="REL_PATH",
+                        help="print the URL of the online copy of a page given as for --page:\n"
+                             "section/page.md -> https://pynecore.org/docs/section/page/ (README.md -> the section URL)")
+    parser.add_argument("--json", action="store_true",
+                        help="print the summary as one JSON object (docs, documented_version, source_ref,\n"
+                             "snapshot_date, pages, runtime, online)")
     args = parser.parse_args()
 
     if args.online:

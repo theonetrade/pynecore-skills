@@ -18,9 +18,11 @@ Run the bundled probe (standard library only) from the project root and read its
 python3 <skill>/scripts/pyne_env.py            # add --json for machine-readable output
 ```
 
-It reports the workdir (the folder holding the `.pyne` marker, or a `workdir/` child), the
-interpreter that can import `pynecore` and its version, the `pyne` CLI path, existing scripts
-and data files with their symbol/timeframe, and any locally bundled PyneCore documentation.
+It reports the workdir (the folder with the `.pyne` marker or the `scripts/ data/ config/`
+layout, or a `workdir/` child) and which of its folders exist, the scripts with their role and
+`.toml`, the data files with symbol and timeframe, the configured plugins and symbol map, and
+the interpreter that can import `pynecore` (`$VIRTUAL_ENV`, `.venv`, `venv`, PATH) with its
+`pyne` command. Only the project folder is inspected.
 
 Rules that follow from it:
 

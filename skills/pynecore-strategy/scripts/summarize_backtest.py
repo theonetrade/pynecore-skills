@@ -214,10 +214,19 @@ def print_report(summary: dict, trades: list[dict], show_trades: int, strat_path
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("path", help="<script>_strat.csv, <script>_trade.csv or the base path without suffix")
-    parser.add_argument("--trades", type=int, default=5, help="show the first/last N trades (default 5, 0 to hide)")
-    parser.add_argument("--json", action="store_true", help="print the summary as JSON")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("path", metavar="PATH",
+                        help="what to summarize, one of:\n"
+                             "  output/NAME_strat.csv     statistics file written by pyne run\n"
+                             "  NAME_strat.csv            statistics file written by a standalone run (python NAME.py data)\n"
+                             "  NAME_trade.csv | NAME_trades.csv   the trade list (its _strat.csv is looked up next to it)\n"
+                             "  output/NAME | NAME        base path without suffix; the suffixes above are tried\n"
+                             "The trade list next to the statistics file is read automatically when present.")
+    parser.add_argument("--trades", type=int, default=5, metavar="N",
+                        help="list the first N and the last N closed trades (integer >= 0; 0 hides the trade table).\n"
+                             "Default: 5")
+    parser.add_argument("--json", action="store_true",
+                        help="print the summary as one JSON object (metrics, long/short split, exit reasons, parsed trades)")
     args = parser.parse_args()
 
     strat_path, trade_path = resolve_paths(args.path)

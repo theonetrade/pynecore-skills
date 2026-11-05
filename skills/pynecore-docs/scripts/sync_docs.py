@@ -147,17 +147,37 @@ def check(dest: Path) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     source_group = parser.add_mutually_exclusive_group()
-    source_group.add_argument("--tag", help="PyneCore git tag to download, e.g. v6.12.0")
-    source_group.add_argument("--from", dest="from_dir", help="local docs folder to copy")
-    source_group.add_argument("--check", action="store_true", help="verify the bundled snapshot")
-    parser.add_argument("--version")
-    parser.add_argument("--commit")
-    parser.add_argument("--license", dest="license_file")
-    parser.add_argument("--notice", dest="notice_file")
-    parser.add_argument("--keep-all", action="store_true")
-    parser.add_argument("--dest", type=Path, default=Path(__file__).resolve().parent.parent / "docs")
+    source_group.add_argument("--tag", metavar="TAG",
+                              help="git tag of a PyneCore release, with the leading v, e.g. v6.12.0. Downloads\n"
+                                   "https://github.com/PyneSys/pynecore/archive/refs/tags/TAG.tar.gz (network needed)\n"
+                                   "and takes docs/, LICENSE and NOTICE from it.")
+    source_group.add_argument("--from", dest="from_dir", metavar="DIR",
+                              help="local folder holding the documentation pages (README.md plus the section folders),\n"
+                                   "for example a PyneCore checkout's docs/. LICENSE and NOTICE are taken from DIR or its\n"
+                                   "parent when present; a manifest.json there supplies the version.")
+    source_group.add_argument("--check", action="store_true",
+                              help="verify the bundled snapshot: every file in docs/MANIFEST.json must exist with the\n"
+                                   "recorded SHA-256, and no extra files may be present. Exit code 1 on any problem.")
+    parser.add_argument("--version", metavar="X.Y.Z",
+                        help="PyneCore version recorded as pynecoreVersion in MANIFEST.json, e.g. 6.12.0.\n"
+                             "Default: TAG without the leading v, else the source's manifest.json, else \"unknown\"")
+    parser.add_argument("--commit", metavar="SHA",
+                        help="git commit hash recorded as sourceCommit in MANIFEST.json.\n"
+                             "Default: from the source's manifest.json when present, else null")
+    parser.add_argument("--license", dest="license_file", metavar="PATH",
+                        help="path of the LICENSE file to copy into the snapshot.\n"
+                             "Default: the release's LICENSE, or LICENSE found in DIR or its parent")
+    parser.add_argument("--notice", dest="notice_file", metavar="PATH",
+                        help="path of the NOTICE file to copy into the snapshot.\n"
+                             "Default: the release's NOTICE, or NOTICE found in DIR or its parent")
+    parser.add_argument("--keep-all", action="store_true",
+                        help="also copy the pages excluded by default (getting-started/converting-from-pine.md,\n"
+                             "cli/compile.md, logo.svg): they cover a cloud compiler for scripts in another language")
+    parser.add_argument("--dest", type=Path, default=Path(__file__).resolve().parent.parent / "docs", metavar="DIR",
+                        help="target folder; it is deleted and recreated, so point it elsewhere to preview a snapshot.\n"
+                             "Default: <skill>/docs")
     args = parser.parse_args()
 
     if args.check or not (args.tag or args.from_dir):

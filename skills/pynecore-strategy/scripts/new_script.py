@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """
-Scaffold a new Pyne strategy, indicator or library from this skill's templates.
+Create a new Pyne script file from one of this skill's templates.
 
 Standard library only.
 
-    python3 new_script.py my_breakout --kind strategy --title "Donchian Breakout"
-    python3 new_script.py rsi_bands --kind indicator
-    python3 new_script.py utils --kind library --publisher mylib     # -> scripts/lib/mylib/utils/v1.py
-    python3 new_script.py my_breakout --workdir /path/to/workdir --force
-    python3 new_script.py my_breakout --cli-only          # workdir script: no standalone bootstrap, no dependency header
-    python3 new_script.py ema_cross --kind minimal        # compact workdir strategy (CLI-only)
-    python3 new_script.py ema --kind minimal-indicator    # compact workdir indicator (CLI-only)
+    python3 new_script.py NAME [--kind KIND] [--title TITLE] [--cli-only] [--workdir DIR] [--create] [--force]
 
-Kinds: strategy / indicator (full templates, standalone-runnable unless --cli-only), library,
-minimal / minimal-indicator (compact workdir scripts that run only through `pyne run` or the IDE).
+NAME is the file to create: `scripts/NAME.py` (or `scripts/lib/PUBLISHER/NAME/vN.py` for a
+library). It is your choice and does not refer to anything that exists; the content comes from
+the template selected by --kind:
+
+    --kind strategy           templates/strategy_template.py      full strategy, standalone-runnable
+    --kind indicator          templates/indicator_template.py     full indicator, standalone-runnable
+    --kind library            templates/library_template.py       shared helpers under scripts/lib/
+    --kind minimal            templates/minimal_cli.py            compact workdir strategy, `pyne run` / IDE only
+    --kind minimal-indicator  templates/minimal_cli_indicator.py  compact workdir indicator, `pyne run` / IDE only
+
+--title sets the script title in the docstring and decorator (default: derived from NAME).
+--cli-only strips the dependency header and the `if __name__ == "__main__":` bootstrap from the
+full templates, leaving a workdir-only script.
 
 The workdir is discovered like PyneCore does (a `.pyne` marker in the current directory or a
 parent, else a `workdir/` child); pass --workdir to override. Missing `scripts/`, `data/`,
@@ -76,17 +81,40 @@ def ensure_workdir(path: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("name", help="file stem, snake_case (becomes scripts/<name>.py)")
-    parser.add_argument("--kind", choices=sorted(TEMPLATES), default="strategy")
-    parser.add_argument("--title", help="script title shown in outputs (default: derived from name)")
-    parser.add_argument("--workdir", type=Path, help="target workdir (default: discovered)")
-    parser.add_argument("--publisher", default="local", help="library namespace folder under scripts/lib (library kind)")
-    parser.add_argument("--version", type=int, default=1, help="library version number (library kind)")
-    parser.add_argument("--create", action="store_true", help="create the workdir structure when missing")
-    parser.add_argument("--force", action="store_true", help="overwrite an existing file")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("name", metavar="NAME",
+                        help="name of the file to create, a Python identifier in snake_case: lowercase letters, digits\n"
+                             "and underscores, not starting with a digit. Becomes scripts/NAME.py, or\n"
+                             "scripts/lib/PUBLISHER/NAME/vN.py for --kind library. Example: donchian_breakout")
+    parser.add_argument("--kind", choices=sorted(TEMPLATES), default="strategy", metavar="KIND",
+                        help="template to copy:\n"
+                             "  strategy           templates/strategy_template.py      full strategy, standalone-runnable\n"
+                             "  indicator          templates/indicator_template.py     full indicator, standalone-runnable\n"
+                             "  library            templates/library_template.py       helpers under scripts/lib/\n"
+                             "  minimal            templates/minimal_cli.py            compact workdir strategy (pyne run / IDE only)\n"
+                             "  minimal-indicator  templates/minimal_cli_indicator.py  compact workdir indicator (pyne run / IDE only)\n"
+                             "Default: strategy")
+    parser.add_argument("--title", metavar="TEXT",
+                        help="script title written into the docstring and the @script decorator; any text, quote spaces.\n"
+                             "Default: NAME with underscores replaced by spaces and each word capitalized.\n"
+                             "Example: --title \"Donchian Breakout\"")
+    parser.add_argument("--workdir", type=Path, metavar="DIR",
+                        help="target workdir: the folder that holds .pyne and scripts/.\n"
+                             "Default: discovered from the current directory upwards (.pyne marker, else a workdir/ child).")
+    parser.add_argument("--publisher", default="local", metavar="NAME",
+                        help="--kind library only: namespace folder under scripts/lib/, a snake_case identifier.\n"
+                             "The module is imported as lib.NAME.<name>.vN. Default: local")
+    parser.add_argument("--version", type=int, default=1, metavar="N",
+                        help="--kind library only: version number N >= 1, giving the file vN.py. Default: 1")
+    parser.add_argument("--create", action="store_true",
+                        help="create the workdir structure when missing (scripts/lib, data, output, config, .pyne);\n"
+                             "when no workdir is found at all, ./workdir is created")
+    parser.add_argument("--force", action="store_true",
+                        help="overwrite the target file if it already exists (default: refuse)")
     parser.add_argument("--cli-only", action="store_true",
-                        help="strip the standalone bootstrap and dependency header (workdir script for `pyne run` / the IDE)")
+                        help="remove the inline dependency header (# /// script ... # ///) and the\n"
+                             "if __name__ == \"__main__\": block from the full templates, leaving a workdir script that\n"
+                             "runs only through pyne run or the IDE. No effect on minimal* and library templates.")
     args = parser.parse_args()
 
     if not re.fullmatch(r"[a-z_][a-z0-9_]*", args.name):

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""
+r"""
 Backtest a Pyne script on a data file from the command line, with input/setting overrides,
 date filters and parameter sweeps. Prints a compact summary and optionally JSON.
 
 Run it with the Python interpreter that has `pynecore` installed (the project's venv):
 
-    .venv/bin/python run_backtest.py scripts/my_strategy.py data/BTCUSDT_1h.csv
-    .venv/bin/python run_backtest.py scripts/my_strategy.py data/demo.ohlcv \
+    .venv/bin/python run_backtest.py SCRIPT.py DATA.csv
+    .venv/bin/python run_backtest.py SCRIPT.py DATA.ohlcv \
         --input fast_len=10 --input slow_len=30 \
         --setting default_qty_value=10 --setting commission_value=0.05 \
         --from 2023-01-01 --to 2024-06-30 --strat out/stats.csv --trade out/trades.csv
-    .venv/bin/python run_backtest.py scripts/my_strategy.py data/demo.ohlcv \
+    .venv/bin/python run_backtest.py SCRIPT.py DATA.ohlcv \
         --sweep fast_len=5:30:5 --sweep slow_len=20,40,60 --metric profit_factor --min-trades 30
 
 Data: an `.ohlcv` file with its `.toml` next to it, or a CSV/JSON/TXT that is converted in
@@ -19,7 +19,16 @@ file name unless --symbol / --provider are given). Review the generated `.toml`.
 
 Overrides: --input uses the `main()` parameter names, --setting the decorator argument names;
 unknown keys fail loudly. Values are parsed as Python literals (`10`, `2.5`, `true`, `"EMA"`),
-unquoted text stays a string.
+unquoted text stays a string. Nothing is written into the script's `.toml`.
+
+Sweep: --sweep name=start:stop:step (inclusive, ints or floats) or name=a,b,c; several --sweep
+options form the cartesian product. Points are ranked by --metric, --min-trades hides noisy
+points, --top limits the table. Prefer a plateau of good neighbours over the single best cell.
+
+Output: a summary of trades, net profit, drawdown (closed-trade equity curve), profit factor,
+win rate, averages, commission and the long/short split; for an indicator, the plot columns with
+their first valid bar and last value. --plot/--strat/--trade write the same CSV files as
+`pyne run`. --json prints everything as JSON.
 """
 from __future__ import annotations
 
@@ -277,26 +286,77 @@ def metric_value(res: dict, name: str):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("script", help="path to the Pyne script (.py with the @pyne docstring)")
-    parser.add_argument("data", help=".ohlcv (with .toml next to it) or CSV/JSON/TXT to convert")
-    parser.add_argument("--input", "-i", action="append", help="input override name=value (repeatable)")
-    parser.add_argument("--setting", "-s", action="append", help="strategy setting override name=value (repeatable)")
-    parser.add_argument("--from", dest="from_", help="start date UTC (YYYY-MM-DD[ HH:MM:SS])")
-    parser.add_argument("--to", help="end date UTC")
-    parser.add_argument("--plot", type=Path, help="write the plot CSV here")
-    parser.add_argument("--strat", type=Path, help="write the statistics CSV here")
-    parser.add_argument("--trade", type=Path, help="write the trade list CSV here")
-    parser.add_argument("--security", action="append", help='security data KEY=base_path (repeatable), e.g. "1D=data/EURUSD_1D"')
-    parser.add_argument("--symbol", help="symbol for CSV conversion (default: guessed from the file name)")
-    parser.add_argument("--provider", help="provider name for CSV conversion")
-    parser.add_argument("--timezone", default="UTC", help="timezone of CSV timestamps (default UTC)")
-    parser.add_argument("--force-convert", action="store_true", help="re-convert the CSV even if the .ohlcv is current")
-    parser.add_argument("--sweep", action="append", help="parameter sweep name=start:stop:step or name=a,b,c (repeatable; cartesian product)")
-    parser.add_argument("--metric", default="net_profit", choices=sorted(METRICS), help="ranking metric for --sweep")
-    parser.add_argument("--min-trades", type=int, default=0, help="ignore sweep points with fewer trades")
-    parser.add_argument("--top", type=int, default=15, help="rows to print for --sweep")
-    parser.add_argument("--json", action="store_true", help="print JSON")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("script", metavar="SCRIPT",
+                        help="path to the Pyne script: a .py file whose first docstring starts with @pyne\n"
+                             "and whose main() carries @script.strategy(...) or @script.indicator(...).\n"
+                             "Example: scripts/my_strategy.py")
+    parser.add_argument("data", metavar="DATA",
+                        help="market data file, one of:\n"
+                             "  NAME.ohlcv                 PyneCore binary candles; NAME.toml (symbol info) must sit next to it\n"
+                             "  NAME.csv | .json | .txt    converted in place to NAME.ohlcv + NAME.toml before the run;\n"
+                             "                             columns: timestamp|time|date, open, high, low, close, volume\n"
+                             "Example: data/BTCUSDT_1h.csv")
+    parser.add_argument("--input", "-i", action="append", metavar="NAME=VALUE",
+                        help="override one input of main(). NAME = the parameter name in main(...) (not the title).\n"
+                             "VALUE = a Python literal: 10 (int), 2.5 (float), true|false (bool), EMA or \"EMA\" (str),\n"
+                             "na (missing). Repeat the option for several inputs.\n"
+                             "Example: -i fast_len=10 -i slow_len=30 -i ma_type=EMA")
+    parser.add_argument("--setting", "-s", action="append", metavar="NAME=VALUE",
+                        help="override one @script.strategy()/@script.indicator() setting for this run only.\n"
+                             "NAME = the decorator argument: initial_capital, default_qty_type, default_qty_value,\n"
+                             "commission_type, commission_value, slippage, pyramiding, margin_long, margin_short,\n"
+                             "process_orders_on_close, calc_on_order_fills, use_bar_magnifier, ...\n"
+                             "VALUE = literal as for --input; constants as their string names:\n"
+                             "  default_qty_type = percent_of_equity | fixed | cash\n"
+                             "  commission_type  = percent | cash_per_order | cash_per_contract\n"
+                             "Repeatable. Example: -s default_qty_value=10 -s commission_value=0.05")
+    parser.add_argument("--from", dest="from_", metavar="DATE",
+                        help="first bar to include (UTC), one of: YYYY-MM-DD | YYYY-MM-DDTHH:MM:SS |\n"
+                             "\"YYYY-MM-DD HH:MM:SS\" (quote the form with a space). Default: first bar of the file.")
+    parser.add_argument("--to", metavar="DATE",
+                        help="last bar to include (UTC), same formats as --from. Default: last bar of the file.")
+    parser.add_argument("--plot", type=Path, metavar="PATH",
+                        help="write the per-bar plot values as CSV to PATH (columns: time, open, high, low, close,\n"
+                             "volume, then one column per plot title). The folder must exist.")
+    parser.add_argument("--strat", type=Path, metavar="PATH",
+                        help="write the statistics CSV to PATH (same layout as pyne run's <script>_strat.csv)")
+    parser.add_argument("--trade", type=Path, metavar="PATH",
+                        help="write the trade list CSV to PATH (same layout as pyne run's <script>_trade.csv)")
+    parser.add_argument("--security", action="append", metavar="KEY=BASE_PATH",
+                        help="data for one request.security() context. KEY = TIMEFRAME (1D, 60, 1W) | SYMBOL\n"
+                             "(SP:SPX) | SYMBOL:TIMEFRAME (SP:SPX:1D). BASE_PATH = data file path without extension;\n"
+                             "BASE_PATH.ohlcv and BASE_PATH.toml must exist. Repeatable.\n"
+                             "Example: --security 1D=data/EURUSD_1D")
+    parser.add_argument("--symbol", metavar="SYMBOL",
+                        help="symbol written into the generated .toml when DATA is a CSV/JSON/TXT, e.g. BTC/USDT,\n"
+                             "EURUSD. Default: guessed from the file name (BTCUSDT.csv, BINANCE_ETHUSDT_1h.csv, EUR_USD.csv).")
+    parser.add_argument("--provider", metavar="NAME",
+                        help="provider name recorded in the generated .toml for a CSV/JSON/TXT, e.g. binance.\n"
+                             "Default: guessed from the file name, else none.")
+    parser.add_argument("--timezone", default="UTC", metavar="TZ",
+                        help="IANA timezone of naive timestamps in a CSV/JSON/TXT, e.g. UTC, Europe/London,\n"
+                             "America/New_York. Timestamps that carry an offset are used as is. Default: UTC.")
+    parser.add_argument("--force-convert", action="store_true",
+                        help="redo the CSV/JSON/TXT conversion even when NAME.ohlcv is newer than the source")
+    parser.add_argument("--sweep", action="append", metavar="NAME=RANGE",
+                        help="sweep one input over several values; NAME as for --input. RANGE is one of:\n"
+                             "  START:STOP          integers START..STOP inclusive, step 1\n"
+                             "  START:STOP:STEP     inclusive; all ints -> ints, any float -> floats; negative STEP counts down\n"
+                             "  V1,V2,V3            explicit list of literals (as for --input)\n"
+                             "Repeat for several inputs: every combination is run (cartesian product).\n"
+                             "Example: --sweep fast_len=5:30:5 --sweep slow_len=20,40,60")
+    parser.add_argument("--metric", default="net_profit", choices=sorted(METRICS), metavar="METRIC",
+                        help="how sweep points are ranked (best first):\n"
+                             "  net_profit | profit_factor | win_rate | avg_trade | trades   higher is better\n"
+                             "  max_drawdown_pct                                         lower is better\n"
+                             "Default: net_profit")
+    parser.add_argument("--min-trades", type=int, default=0, metavar="N",
+                        help="hide sweep points with fewer than N closed trades (integer >= 0). Default: 0")
+    parser.add_argument("--top", type=int, default=15, metavar="N",
+                        help="number of sweep rows to print (integer >= 1). Default: 15")
+    parser.add_argument("--json", action="store_true",
+                        help="print the result as JSON instead of text (single run: one object; sweep: a list)")
     args = parser.parse_args()
 
     script = Path(args.script)
