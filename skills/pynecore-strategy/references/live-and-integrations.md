@@ -3,6 +3,7 @@
 ## Contents
 
 - [Live mode from the CLI](#live-mode-from-the-cli)
+- [Paper and live runs with this skill's scripts](#paper-and-live-runs-with-this-skills-scripts)
 - [Live mode from Python](#live-mode-from-python)
 - [What changes in live mode](#what-changes-in-live-mode)
 - [Broker trading](#broker-trading)
@@ -20,10 +21,70 @@ pyne run my_strategy ccxt:BINANCE:ETH/USDT@60 --live -f -1000 --no-plot # skip t
 
 - `--live` needs a **provider string**, not a file. The built-in `ccxt` provider streams
   public candles; broker plugins (Bybit, Capital.com, cTrader, ...) are separate packages.
+  Provider mode downloads the history again on every start and **overwrites the cached
+  `data/<provider>_<SYMBOL>_<TF>.ohlcv` with just that range**; `run_paper.py` below appends to
+  the cache instead.
+- Spot pairs through `ccxt` need `default_type = "spot"` in `config/plugins/ccxt.toml`: the
+  default `"swap"` is applied to the websocket client, which then rejects `BTC/USDT`
+  (`does not have market symbol`) and the runner reconnects forever. Perpetuals keep `swap`
+  and the `:SETTLE` suffix.
 - `-f -N` is the warm-up: at least 2x the longest lookback, more for recursive averages
   (EMA/RMA/RSI/ATR). Default 500.
 - Ctrl+C stops with a graceful shutdown (`--shutdown-timeout`).
 - Strategy statistics CSV is rewritten after every closed bar; the trade CSV appends.
+
+## Paper and live runs with this skill's scripts
+
+```bash
+<python> <skill>/scripts/run_paper.py my_strategy ccxt:BINANCE:BTC/USDT@1 --from -500 --bars 60      # simulated fills
+<python> <skill>/scripts/run_paper.py my_strategy ccxt:BYBIT:BTC/USDT:USDT@5 --duration 4h -i fast_length=10 --json
+<python> <skill>/scripts/run_live.py  my_strategy bybit:BTCUSDT@60 --from -1000          # preflight + dry run (exit 2)
+<python> <skill>/scripts/run_live.py  my_strategy bybit:BTCUSDT@60 --from -1000 --yes    # real orders
+<python> <skill>/scripts/run_live.py  --list-brokers
+```
+
+**`run_paper.py`** drives `ScriptRunner(live=True)` with PyneCore's own live feed
+(`pynecore.core.live_runner.live_ohlcv_generator`), nothing is sent to a venue:
+
+1. the warm-up comes from the candle cache `data/<provider>_<SYMBOL>_<TF>.ohlcv`, which the
+   script first brings up to the last closed bar by appending (a missing file is downloaded for
+   the warm-up range only, not for a year);
+2. the last N closed bars (`--from -N`, default 500) run with orders suppressed, then the
+   websocket stream: every bar close runs the strategy, fills are checked tick by tick, one line
+   per closed bar is printed, `output/<script>_paper_strat.csv` (rewritten) and
+   `_paper_trade.csv` (appended) are written;
+3. `--input` / `--setting` override as in `run_backtest.py` without touching the `.toml`;
+   `--bars N`, `--duration 4h` or Ctrl+C stop the run, the websocket is closed gracefully and
+   the `run_backtest.py` summary (trades, net, drawdown, open position) follows, `--json` for
+   machines.
+
+Live bars are not written to the cache; the next run or `download_candles.py` appends them.
+Verified on 6.12: Binance spot 1-minute bars over the public websocket (two closed bars,
+simulated position, clean disconnect) and four paper trades with tick-level exits on a paced
+150-bar replay feed.
+
+**`run_live.py`** launches `pyne run SCRIPT PROVIDER --broker` and refuses to start unless the
+script is a strategy, the plugin subclasses `BrokerPlugin` (the built-in `ccxt` is data-only;
+broker plugins are `pynesys-pynecore-bybit`, `-capitalcom`, `-ctrader`),
+`config/plugins/<plugin>.toml` has active settings, and `--yes` is given. The dry run shows the
+sandbox/demo state (REAL MONEY otherwise), the `scripts/<name>.toml` that will trade (no
+overrides, on purpose), and the exact command. While running it copies pyne's output to
+`output/logs/live_<script>_<UTC time>.log`, frames the `pyne broker resume RUN_ID QUARANTINE_ID`
+command when a quarantine starts, forwards Ctrl+C / SIGTERM for a graceful stop (positions stay
+on the venue) and returns pyne's exit code. Without a broker plugin installed it could only be
+verified up to the launch; the output streaming and quarantine detection were tested on a
+stand-in process.
+
+Gotchas:
+
+- Bars that close while the websocket connects are processed as history (orders suppressed);
+  the summary reports them as catch-up. A feed that emits everything at once (the `replay`
+  plugin's fixtures) is all catch-up: stop it with `--duration`, not `--bars`.
+- Spot pairs need `default_type = "spot"` (see above); `run_paper.py` sets it for a symbol
+  without `:SETTLE` for the run.
+- Binance without `api.binance.com`: a `[binance]` table with `urls.api.public` and
+  `urls.api.ws.spot = "wss://data-stream.binance.vision/ws"` in `config/plugins/ccxt.toml`
+  (details in [cli-and-data.md](cli-and-data.md#binance-without-apibinancecom)).
 
 ## Live mode from Python
 
@@ -143,6 +204,7 @@ historical bars and backtests stay silent. Keep secrets in environment variables
 - Pin the PyneCore version (`pynesys-pynecore==6.12.x`) in the environment that runs live.
 - Keep the symbol `.toml` under version control; it drives rounding and sessions.
 - Log to `output/logs/` (default) and rotate externally; disable the plot CSV with `--no-plot`.
-- Test the exact command in paper mode (`--live` without `--broker`) before `--broker`.
+- Test the logic in paper mode first (`run_paper.py`, or `--live` without `--broker`) and the
+  exact broker command with `run_live.py`'s dry run before `--yes`.
 - A supervisor (systemd, container restart policy) should restart the process; quarantine
   survives restarts by design.

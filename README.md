@@ -79,8 +79,10 @@ and data, `pyrightconfig.json`, `.gitignore`; no agent or editor files);
 `skills/pynecore-strategy/scripts/pyne_env.py` reports an existing project's structure,
 interpreter, CLI, scripts and data; `skills/pynecore-strategy/scripts/download_candles.py`
 downloads and updates exchange candles through CCXT (Binance by default) into the project's
-`data/` cache; `skills/pynecore-ide/scripts/ide_env.py` verifies (or creates with `--create`)
-the workdir structure PyneIDE and the CLI expect.
+`data/` cache; `run_backtest.py`, `run_paper.py` and `run_live.py` in the same folder run a
+strategy on a data file, on a live stream with simulated fills, and against a broker plugin
+through `pyne run --broker`; `skills/pynecore-ide/scripts/ide_env.py` verifies (or creates with
+`--create`) the workdir structure PyneIDE and the CLI expect.
 
 ## Documentation tools
 
@@ -146,7 +148,7 @@ skills/
 │   │                                 # cli-and-data, programmatic, multi-timeframe,
 │   │                                 # live-and-integrations, patterns, pitfalls
 │   ├── scripts/                      # init_project.py, pyne_env.py, new_script.py, download_candles.py,
-│   │                                 # run_backtest.py, summarize_backtest.py
+│   │                                 # run_backtest.py, run_paper.py, run_live.py, summarize_backtest.py
 │   └── templates/                    # minimal_cli.py + minimal_cli_indicator.py (workdir-only), full strategy/indicator
 │                                     # (standalone-runnable), library, DataFrame bridge, FreqTrade x2,
 │                                     # live CCXT, custom feed

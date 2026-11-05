@@ -104,10 +104,10 @@ in `output/`).
   (`BTCUSDT.csv`, `BINANCE_ETHUSDT_1h.csv`, `EUR_USD.csv`);
 - a provider string `provider:EXCHANGE:SYMBOL[:SETTLE]@TIMEFRAME`, for example
   `ccxt:BYBIT:BTC/USDT:USDT@1D` or `ccxt:BINANCE:ETH/USDT@240`. This downloads the last 500
-  bars (`-f -500`, or a date / `-f -N`) right before the run, **again on every run**, and
-  refreshes the symbol info from the venue. It is for live mode and one-off fresh runs; for
-  backtests download once and pass the file name (see
-  [Candle cache](#candle-cache-download-once-update-run-offline)).
+  bars (`-f -500`, or a date / `-f -N`) right before the run, **again on every run**, refreshes
+  the symbol info from the venue and **overwrites `data/ccxt_<...>.ohlcv` with just that
+  range**. It is for live mode and one-off fresh runs; for backtests download once and pass the
+  file name (see [Candle cache](#candle-cache-download-once-update-run-offline)).
 
 Always pass `PYNE_NO_LOGO=1` (or `PYNE_QUIET=1`) in automated runs to keep output parseable.
 
@@ -242,10 +242,12 @@ Rules (verified on PyneCore 6.12):
   overlap is dropped) and with no file yet goes one year back. A `--from` before the first
   stored bar cannot be appended in front; the CLI asks for confirmation and truncates, because
   the writer only appends.
-- **Only `pyne data download` (and this skill's `download_candles.py`) feed the cache.
-  `pyne run SCRIPT ccxt:...` bypasses it**: provider mode downloads the bars again on every run
-  (500 by default) and re-fetches the symbol info. Backtests and sweeps always run on the file
-  name.
+- **Only `pyne data download` (and this skill's `download_candles.py` / `run_paper.py`) feed
+  the cache. `pyne run SCRIPT ccxt:...` bypasses it and damages it**: provider mode downloads
+  the bars again on every run (500 by default), re-fetches the symbol info, and **replaces the
+  cache file with just that range** (verified: a 29-bar daily file held 11 bars after
+  `pyne run ... ccxt:BINANCE:BTC/USDT@1D -f -10`). Backtests and sweeps always run on the file
+  name; paper trading goes through `run_paper.py`, which appends to the cache instead.
 - **A bar stored while still forming is never fixed.** `pyne data download` ends at "now", so
   run in the middle of a bar it stores that bar with partial values; the next `continue` skips
   everything up to the last stored timestamp and leaves it as is (checked with 1-minute bars:

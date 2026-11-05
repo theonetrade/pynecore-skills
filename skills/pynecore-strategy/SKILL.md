@@ -1,7 +1,7 @@
 ---
 name: pynecore-strategy
 license: MIT
-description: Design, write, backtest, debug, optimize and deploy trading strategies and indicators as PyneCore (Pyne) Python scripts, and run them through the `pyne` CLI or the `ScriptRunner` API. Use this skill whenever a task involves PyneCore, Pyne code, a `@pyne` docstring, `pynecore.lib`, `ta.*` / `strategy.*` calls in Python, `pyne run`, `.ohlcv` data files, downloading or caching exchange candles through CCXT (Binance, Bybit, ...), a PyneCore workdir (`scripts/`, `data/`, `output/`), backtests or parameter sweeps of a Python trading strategy, `request.security` multi-timeframe logic, live CCXT feeds through PyneCore, or FreqTrade integration with PyneCore scripts, even when the user just says "write me a strategy", "backtest this idea", "why does my strategy not trade" or "add a stop loss" in a project that contains PyneCore files.
+description: Design, write, backtest, debug, optimize and deploy trading strategies and indicators as PyneCore (Pyne) Python scripts, and run them through the `pyne` CLI or the `ScriptRunner` API. Use this skill whenever a task involves PyneCore, Pyne code, a `@pyne` docstring, `pynecore.lib`, `ta.*` / `strategy.*` calls in Python, `pyne run`, `.ohlcv` data files, downloading or caching exchange candles through CCXT (Binance, Bybit, ...), paper trading or live broker runs of a Pyne strategy, a PyneCore workdir (`scripts/`, `data/`, `output/`), backtests or parameter sweeps of a Python trading strategy, `request.security` multi-timeframe logic, live CCXT feeds through PyneCore, or FreqTrade integration with PyneCore scripts, even when the user just says "write me a strategy", "backtest this idea", "why does my strategy not trade" or "add a stop loss" in a project that contains PyneCore files.
 ---
 
 # PyneCore strategy development
@@ -138,7 +138,13 @@ Full detail: [references/strategy-api.md](references/strategy-api.md),
   <python> <skill>/scripts/download_candles.py BTC/USDT -tf 60 [--from 2024-01-01]   # cache / update candles first
   PYNE_NO_LOGO=1 <pyne> run <script> <data> [--from 2023-01-01 --to 2024-12-31] [--timeframe 60] [--security "1D=name"]
   <python> <skill>/scripts/run_backtest.py <script.py> <data.ohlcv|csv> [--input k=v] [--setting k=v] [--sweep k=a:b:step] [--json]
+  <python> <skill>/scripts/run_paper.py <script.py> ccxt:BINANCE:BTC/USDT@1 --from -500 [--bars N | --duration 4h]   # simulated fills on live bars
+  <python> <skill>/scripts/run_live.py <script.py> bybit:BTCUSDT@60 [--yes]       # real orders via a broker plugin; dry run without --yes
   ```
+
+  Never backtest or paper-trade with `pyne run SCRIPT ccxt:...`: provider mode re-downloads and
+  overwrites the cached data file on every run (see `references/cli-and-data.md`,
+  `references/live-and-integrations.md`).
 
   `pyne run` writes `output/<script>.csv` (plots), `_strat.csv` (statistics), `_trade.csv`
   (trades). `run_backtest.py` prints a compact summary, accepts overrides without touching the
@@ -196,6 +202,8 @@ symptom-to-fix tables.
 | `scripts/new_script.py` | Scaffold a strategy / indicator / library / minimal workdir script; `--cli-only` strips the standalone bootstrap (stdlib) |
 | `scripts/download_candles.py` | Download / update exchange candles through CCXT (Binance by default) into `data/`, closed bars only, `--status` cache check, several symbols, JSON (needs the project interpreter with `[ccxt]`) |
 | `scripts/run_backtest.py` | Backtest with overrides, date range, CSV conversion, sweeps, JSON (needs the project interpreter) |
+| `scripts/run_paper.py` | Paper trading on a live provider stream: warm-up from the candle cache (appended, never rewritten), simulated fills, per-bar lines, `--bars` / `--duration` stop, same overrides and summary as `run_backtest.py` (project interpreter) |
+| `scripts/run_live.py` | Real orders through `pyne run --broker`: preflight (strategy, broker plugin, credentials, sandbox flag, settings `.toml`), dry run unless `--yes`, log file, quarantine resume command surfaced (project interpreter) |
 | `scripts/summarize_backtest.py` | Turn `_strat.csv` + `_trade.csv` into a short report with warnings (stdlib) |
 | `templates/minimal_cli.py` | Workdir-only strategy (EMA crossover, ATR stop/target, explicit sizing and costs); no bootstrap, runs only via `pyne run` / the IDE |
 | `templates/minimal_cli_indicator.py` | Workdir-only indicator (EMA crossover), the shape of `scripts/demo.py` |
