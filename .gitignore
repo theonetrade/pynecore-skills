@@ -1,7 +1,3 @@
 __pycache__/
 *.pyc
-# generated next to templates when they are run in place
-skills/*/templates/*.toml
-skills/*/templates/*.csv
-skills/*/templates/*.ndjson
 .DS_Store
