@@ -11,6 +11,9 @@ Place it under <workdir>/scripts/lib/<publisher>/<name>/v<N>.py and import it fr
 Each function keeps its own Series / Persistent state per call site in the importing script,
 exactly like the built-in ta.* functions. Exported functions must not capture per-bar values
 or objects created at module level or inside main(); module-level constants are fine.
+
+The docstring may also read ``@pyne lib`` (the spelling PyneIDE's `library` snippet uses), with
+or without the @script.library main(); both forms load and behave the same.
 """
 from pynecore.lib import script, ta, high, low, na
 from pynecore.types import Series, Persistent

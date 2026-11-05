@@ -14,16 +14,14 @@ It answers the questions an agent has before touching a project:
   child), and whether it exists at all;
 - which Python interpreter has `pynecore` installed, and which version;
 - where the `pyne` CLI is (next to that interpreter), or whether `uv run pyne` applies;
-- which scripts and data files the workdir already has;
-- whether a local copy of the PyneCore documentation is available (the PyneIDE editor
-  extension bundles one).
+- which scripts and data files the workdir already has.
 
-Nothing here is project-specific; the same file works for every project.
+Only the project itself is inspected. The PyneCore documentation is bundled in the
+`pynecore-docs` skill of this repository.
 """
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import os
 import shutil
@@ -33,12 +31,6 @@ import tomllib
 from pathlib import Path
 
 VENV_CANDIDATES = (".venv", "venv", ".pyneide/venv", "env", ".env")
-DOC_GLOBS = (
-    "~/.vscode/extensions/pynesys.pyneide-*/resources/pynecore/docs",
-    "~/.vscode-insiders/extensions/pynesys.pyneide-*/resources/pynecore/docs",
-    "~/.cursor/extensions/pynesys.pyneide-*/resources/pynecore/docs",
-    "~/.windsurf/extensions/pynesys.pyneide-*/resources/pynecore/docs",
-)
 
 
 def find_workdir(start: Path) -> tuple[Path | None, str]:
@@ -213,15 +205,6 @@ def list_data(workdir: Path) -> list[dict]:
     return items
 
 
-def find_docs() -> list[str]:
-    hits: list[str] = []
-    for pattern in DOC_GLOBS:
-        for match in sorted(glob.glob(os.path.expanduser(pattern)), reverse=True):
-            if (Path(match) / "README.md").is_file():
-                hits.append(match)
-    return hits
-
-
 def build_report(root: Path) -> dict:
     workdir, how = find_workdir(root)
     pythons = find_python(root, workdir)
@@ -245,7 +228,6 @@ def build_report(root: Path) -> dict:
         "uv_available": bool(shutil.which("uv")),
         "scripts": list_scripts(workdir) if workdir else [],
         "data": list_data(workdir) if workdir else [],
-        "local_docs": find_docs(),
     }
     return report
 
@@ -284,10 +266,7 @@ def print_human(r: dict) -> None:
                       f"{d.get('period') or ''} {d.get('type') or ''} {'(no .toml!)' if d.get('toml_missing') else ''}")
             else:
                 print(f"               {d['name']:<40} CSV, not converted yet")
-    if r["local_docs"]:
-        print(f"Local docs   : {r['local_docs'][0]}")
-    else:
-        print("Local docs   : none bundled locally; rely on this skill's references/")
+    print("Docs         : bundled in the pynecore-docs skill (find_docs.py --grep / --page)")
     if r["pyne_cli"] and r["workdir"]:
         print()
         print("Example run  :")

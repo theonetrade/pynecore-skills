@@ -278,6 +278,11 @@ constants but must not capture objects or per-bar values created at module level
 library's `main()`; that is rejected at load time. `templates/library_template.py` is a
 complete example and `scripts/new_script.py --kind library` scaffolds one.
 
+Two accepted spellings, both verified: the plain `@pyne` docstring with a `@script.library`
+`main()` as above, or the `@pyne lib` docstring (what the PyneIDE `library` snippet inserts),
+with or without the `main()`. `lib` mode stores the module's series as compacted windows, a
+memory detail; the functions behave the same. Pick one spelling per project.
+
 ## User-defined types and enums
 
 ```python

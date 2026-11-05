@@ -34,8 +34,10 @@ Rules that follow from it:
   bars) for smoke tests; real data comes from `pyne data download ccxt:BYBIT:BTC/USDT:USDT@1D` or
   `pyne data convert-from file.csv`. **Open the generated `data/<name>.toml` and check
   `mintick`, `pointvalue`, `mincontract`, `basecurrency`, `timezone`** before trusting results.
-- If the probe lists a local documentation folder, consult it for details this skill does not
-  cover; otherwise the `references/` of this skill are the documentation.
+- For details this skill's `references/` do not cover, the `pynecore-docs` skill carries the
+  complete PyneCore documentation offline (`find_docs.py --grep`, `--page`).
+- A project initialized by PyneIDE (`.pyneide/` folder, `pyneide.*` settings) has a managed
+  interpreter and editor commands described by the `pynecore-ide` skill.
 
 ## 2. Workflow for a strategy task
 

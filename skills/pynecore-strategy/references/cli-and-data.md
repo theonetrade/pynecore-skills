@@ -184,6 +184,23 @@ the `.toml` is copied with `period` updated.
 pyne data convert-to ccxt_BINANCE_BTC_USDT_1D --format csv --as-datetime
 ```
 
+### Provider plugin configuration
+
+`pyne --recreate-provider-config` writes one commented `config/plugins/<plugin>.toml` per
+installed plugin. For the built-in CCXT provider (`config/plugins/ccxt.toml`) the fields map to
+CCXT constructor arguments, so any CCXT option can be added by name:
+
+```toml
+#apiKey = ""            # only needed for private endpoints; public candles need no key
+#secret = ""
+#password = ""          # some exchanges (KuCoin) require it
+#sandbox = false        # exchange testnet / demo endpoint
+#default_type = "swap"  # "spot" / "swap" / "future" / "margin"
+#symbol_map = {}        # {"FX:EURUSD" = "EURUSD"}: script symbol -> exchange symbol for live feeds
+```
+
+Keep this folder out of version control; it may hold exchange keys.
+
 ### Symbol map (for `request.security`)
 
 ```bash
