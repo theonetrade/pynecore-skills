@@ -200,21 +200,17 @@ values are what `ScriptRunner.run_iter()` yields as `plot_data` and what the plo
 so plotting a signal (`plot(1 if long_signal else 0, "enter_long")`) is the way to export
 decisions to external code.
 
-## Drawings: `label`, `line`, `box`, `table`, `polyline`, `linefill`, `hline`
+## Drawings: `label`, `line`, `box`, `table`, `polyline`, `linefill`
 
-Full object APIs exist (`label.new(x, y, text, xloc=, yloc=, color=, style=, textcolor=,
-size=, textalign=, tooltip=)`, `line.new(x1, y1, x2, y2, xloc=, extend=, color=, style=,
-width=)`, `box.new(left, top, right, bottom, ...)`, `table.new(position, columns, rows, ...)`,
-`table.cell(t, col, row, text, ...)`, `polyline.new(points, ...)`, `linefill.new(l1, l2, color)`,
-with `set_*`/`get_*`/`delete`/`copy` and `.all`). PyneCore draws nothing itself; drawings are
-state that `--viz` exports as NDJSON for a renderer. In a backtest-oriented strategy they add
-cost without benefit; use `plot()` columns and `log.*` for evidence, and drawings only when a
-renderer will consume them. Objects beyond `max_lines_count` / `max_labels_count` /
-`max_boxes_count` (default 50) are garbage-collected oldest first. Keep a drawing handle across
-bars in a `Persistent` variable.
-
-`chart.point.new(time, index, price)`, `chart.point.now(price)`,
-`chart.point.from_index(index, price)`, `chart.point.from_time(time, price)` build coordinates.
+Full object APIs exist (`label.new(x, y, text, ...)`, `line.new(x1, y1, x2, y2, ...)`,
+`box.new(left, top, right, bottom, ...)`, `table.new(position, columns, rows, ...)` +
+`table.cell(...)`, `polyline.new(points, ...)`, `linefill.new(l1, l2, color)`, with
+`set_*`/`get_*`/`delete`/`copy` and `.all`; coordinates by `xloc.bar_index` or `xloc.bar_time`,
+`chart.point` objects for the point forms). PyneCore draws nothing itself; drawings are state
+that `--viz` exports as NDJSON for a renderer, and objects past `max_lines_count` /
+`max_labels_count` / `max_boxes_count` / `max_polylines_count` (default 50) are deleted oldest
+first. Signatures, the NDJSON format, reading it in Python, `scripts/viz_inspect.py` and the
+verified behaviour: [drawings-and-viz.md](drawings-and-viz.md).
 
 ## `log`, `alert`, `runtime`
 

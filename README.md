@@ -17,7 +17,7 @@ editor state and local documentation at the start of a task.
 
 | Skill | What it covers |
 |-------|----------------|
-| [`pynecore-strategy`](skills/pynecore-strategy/SKILL.md) | Writing, backtesting, debugging, optimizing and deploying PyneCore strategies and indicators; language rules; strategy API; CLI and data; `ScriptRunner`; multi-timeframe; live mode; FreqTrade and DataFrame integration; scaffolding, backtest and report tools |
+| [`pynecore-strategy`](skills/pynecore-strategy/SKILL.md) | Writing, backtesting, debugging, optimizing and deploying PyneCore strategies and indicators; language rules; strategy API incl. `strategy.risk.*` semantics; drawings and the `--viz` NDJSON stream; CLI and data; `ScriptRunner`; multi-timeframe; live mode; FreqTrade and DataFrame integration; scaffolding, backtest, viz-inspection and report tools |
 | [`pynecore-ide`](skills/pynecore-ide/SKILL.md) | Working in a project initialized by PyneIDE (the VS Code extension): the managed environment and how an agent shell reaches it, the files the IDE writes into a project (and which of them are disposable boilerplate), editor commands for run / debug / profile / inputs / chart / data, evidence reporting |
 | [`pynecore-cli`](skills/pynecore-cli/SKILL.md) | The `pyne` command-line interface shipped with PyneCore, as installed: every command and option with its value format (`run`, `data download / convert-from / convert-to / aggregate / map`, `plugin`, `debug ast`, `benchmark`, `broker resume`, the `--recreate-*` global options), workdir discovery and what each call creates, `PYNE_*` variables, prompts and exit codes in non-interactive shells, and a script that checks the installed CLI against the reference |
 | [`pynecore-plugin`](skills/pynecore-plugin/SKILL.md) | Extending PyneCore with plugins: the `pyne.plugin` entry-point system, the Config dataclass that becomes `config/plugins/<name>.toml`, the `ProviderPlugin` / `LiveProviderPlugin` / `BrokerPlugin` / `CLIPlugin` contracts and the live runner's rules; four tested templates to copy or scaffold: candles from files (.ohlcv, CSV, JSON, parquet, SQLite, with in-provider aggregation to higher timeframes and paced replay), CCXT over REST polling, Telegram notifications, and a simulated broker with an offline conformance-lab suite. |
@@ -83,7 +83,7 @@ interpreter, CLI, scripts and data; `skills/pynecore-strategy/scripts/download_c
 downloads and updates exchange candles through CCXT (Binance by default) into the project's
 `data/` cache; `run_backtest.py`, `run_paper.py` and `run_live.py` in the same folder run a
 strategy on a data file, on a live stream with simulated fills, and against a broker plugin
-through `pyne run --broker`; `skills/pynecore-ide/scripts/ide_env.py` verifies (or creates with
+through `pyne run --broker`; `viz_inspect.py` digests the `--viz` NDJSON of plots and drawings; `skills/pynecore-ide/scripts/ide_env.py` verifies (or creates with
 `--create`) the workdir structure PyneIDE and the CLI expect.
 
 ## Documentation tools
@@ -150,7 +150,7 @@ skills/
 │   │                                 # cli-and-data, programmatic, multi-timeframe,
 │   │                                 # live-and-integrations, patterns, pitfalls
 │   ├── scripts/                      # init_project.py, pyne_env.py, new_script.py, download_candles.py,
-│   │                                 # run_backtest.py, run_paper.py, run_live.py, summarize_backtest.py
+│   │                                 # run_backtest.py, run_paper.py, run_live.py, summarize_backtest.py, viz_inspect.py
 │   └── templates/                    # minimal_cli.py + minimal_cli_indicator.py (workdir-only), full strategy/indicator
 │                                     # (standalone-runnable), library, DataFrame bridge, FreqTrade x2,
 │                                     # live CCXT, custom feed

@@ -86,7 +86,7 @@ pyne run SCRIPT DATA [options]
 | `--timeframe, -tf` | Chart timeframe larger than the data's (`5`, `60`, `240`, `1D`, `1W`); aggregates on the fly, or enables the bar magnifier for strategies |
 | `--plot, -pp PATH` / `--no-plot` | Plot CSV path, or skip it |
 | `--strat, -sp PATH`, `--trade, -tp PATH` | Statistics and trade CSV paths |
-| `--viz`, `--viz-path PATH`, `--viz-journal` | NDJSON with plot styles and drawings (for your own renderer) |
+| `--viz`, `--viz-path PATH`, `--viz-journal` | NDJSON with plot styles, per-bar values/colors and drawings; `--viz-journal` adds per-bar create/update/delete events ([drawings-and-viz.md](drawings-and-viz.md)) |
 | `--security, -sec "KEY=data_name"` | Data for `request.security()` contexts; repeatable. KEY is `TIMEFRAME`, `SYMBOL` or `SYMBOL:TIMEFRAME` |
 | `--list-data` | Print the data the script's `request.security()` calls need, do not run |
 | `--live, -l` | Continue with streaming data after the history (provider mode only) |
@@ -371,7 +371,7 @@ silently distorts fills, sizes, P&L and session logic. Edit the file by hand whe
 | `output/<script>.csv` | `time,open,high,low,close,volume` + one column per plot title; `NaN` for missing |
 | `output/<script>_strat.csv` | Performance metrics (see [strategy-api.md](strategy-api.md#statistics-and-trade-csv-files)) |
 | `output/<script>_trade.csv` | Entry/exit rows per trade |
-| `output/<script>_viz.ndjson` | Only with `--viz`: plot styles, per-bar values and colors, drawings |
+| `output/<script>_viz.ndjson` | Only with `--viz` / `--viz-journal`: plot styles, per-bar values and colors, drawing objects (format and reader: [drawings-and-viz.md](drawings-and-viz.md); digest: `scripts/viz_inspect.py FILE`) |
 | `output/<script>_profile.json` | Only with `--profile` |
 | `output/logs/` | Run logs |
 

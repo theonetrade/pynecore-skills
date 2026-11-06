@@ -210,18 +210,37 @@ if strategy.closedtrades > 0:
     last_was_loss = strategy.closedtrades.profit(strategy.closedtrades - 1) < 0
 ```
 
-## Risk rules
+## Risk rules (`strategy.risk.*`)
 
-Declared once per bar (they are idempotent); the emulator enforces them after fills.
+Each call stores a rule on the position; calling it once (first bar) or every bar is the same.
+The emulator enforces the rules at fill time and at bar end, in backtests and, through the same
+predicates, at order submission in broker mode (read in the 6.12.1 sources; the table below is
+what backtests on 480 hourly bars showed).
 
-| Call | Effect |
-|------|--------|
-| `strategy.risk.allow_entry_in(strategy.direction.long)` | Only long entries (`.short`, `.all`) |
-| `strategy.risk.max_position_size(contracts)` | Cap on position size |
-| `strategy.risk.max_drawdown(value, type=strategy.percent_of_equity)` | Close everything and stop trading at that drawdown (`strategy.cash` for an absolute amount) |
-| `strategy.risk.max_intraday_loss(value, type=...)` | Same, for a single day's loss |
-| `strategy.risk.max_cons_loss_days(count)` | Stop after N losing days in a row |
-| `strategy.risk.max_intraday_filled_orders(count)` | Cap fills per day |
+| Rule | What it does (verified) | Scope |
+|------|--------------------------|-------|
+| `strategy.risk.allow_entry_in(strategy.direction.long)` (`.short`, `.all`) | While flat, an entry in the other direction is dropped. While in a position, an opposite `strategy.entry` **closes the position instead of reversing** (trade CSV: exit signal = the entry id, e.g. `S`); no short is opened | permanent |
+| `strategy.risk.max_position_size(contracts)` | An entry that would exceed the cap is **trimmed** to `cap − |position|` (all fills showed the cap size); when the cap is already held the order is dropped | permanent |
+| `strategy.risk.max_intraday_filled_orders(count)` | Counts fills per trading day. When a fill reaches the cap while a position is open, the position is closed at once (`Close Position (Max number of filled orders in one day)`, same bar); new entries are not even placed for the rest of the day; the counter resets at the day rollover | per day |
+| `strategy.risk.max_drawdown(value, type=strategy.percent_of_equity)` | Drawdown = realized peak equity (initial capital or the highest equity at a trade close) minus mark-to-market equity. Checked **only on a bar where a trade closed**; an open position can sink far below the threshold without triggering it. On breach: cancel everything, close at the bar close (`Close Position (Max drawdown reached)`), **halt for the rest of the run**. `strategy.cash` = absolute amount | permanent |
+| `strategy.risk.max_intraday_loss(value, type=...)` | Loss = start-of-day equity minus current equity, checked every bar (and intra-bar on the price path). On breach: cancel, close (`Close Position (Max intraday loss reached)`), **halt until the next trading day**, then trade again. Percent is of the day's opening equity. Not enforced while the day opened with equity ≤ 0 | per day |
+| `strategy.risk.max_cons_loss_days(count)` | At each day rollover: equity below the previous day's opening equity counts a losing day, otherwise the counter resets. On reaching `count` the halt fires **at the new day's open** (`Close Position (Max consecutive loss days reached)`), permanently | permanent |
+
+- A trading day comes from `time_tradingday()`: the calendar day in the exchange timezone for
+  24/7 and intraday-session symbols, the session day for overnight sessions (forex, futures).
+- A halt cancels pending orders, closes the position with exit id `Risk management close` and
+  makes `strategy.entry` / `strategy.order` return without placing anything. The closes appear
+  in `<script>_trade.csv` with the comments above, so a run that "stopped trading" is diagnosed
+  from that file.
+- `alert_message` arguments are accepted and stored but **not emitted anywhere** in 6.12.1 (no
+  log line, no `alert()`); do not rely on them for notifications.
+- Numbers from the probe (alternating long/short entries every 10 bars, close after 5, 480 bars,
+  53 trades without rules): `allow_entry_in(long)` 27 trades, all long; `max_position_size(0.02)`
+  53 trades at 0.02 instead of 0.05; `max_intraday_filled_orders(2)` 22 trades, never more than
+  two fills a day; `(1)` closes every entry on its own bar; `max_drawdown(1 %)` halted after the
+  second losing trade (cumulative −138 on 10 000); `max_intraday_loss(30, strategy.cash)` 20
+  risk closes on 22 trading days, trading resumed each day; `max_cons_loss_days(1)` halted at the
+  first midnight after a losing day.
 
 ## Statistics and trade CSV files
 

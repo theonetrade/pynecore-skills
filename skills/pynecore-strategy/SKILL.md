@@ -1,7 +1,7 @@
 ---
 name: pynecore-strategy
 license: MIT
-description: Design, write, backtest, debug, optimize and deploy trading strategies and indicators as PyneCore (Pyne) Python scripts, and run them through the `pyne` CLI or the `ScriptRunner` API. Use this skill whenever a task involves PyneCore, Pyne code, a `@pyne` docstring, `pynecore.lib`, `ta.*` / `strategy.*` calls in Python, `pyne run`, `.ohlcv` data files, downloading or caching exchange candles through CCXT (Binance, Bybit, ...), paper trading or live broker runs of a Pyne strategy, a PyneCore workdir (`scripts/`, `data/`, `output/`), backtests or parameter sweeps of a Python trading strategy, `request.security` multi-timeframe logic, live CCXT feeds through PyneCore, or FreqTrade integration with PyneCore scripts, even when the user just says "write me a strategy", "backtest this idea", "why does my strategy not trade" or "add a stop loss" in a project that contains PyneCore files.
+description: Design, write, backtest, debug, optimize and deploy trading strategies and indicators as PyneCore (Pyne) Python scripts, and run them through the `pyne` CLI or the `ScriptRunner` API. Use this skill whenever a task involves PyneCore, Pyne code, a `@pyne` docstring, `pynecore.lib`, `ta.*` / `strategy.*` calls in Python, `pyne run`, `.ohlcv` data files, downloading or caching exchange candles through CCXT (Binance, Bybit, ...), paper trading or live broker runs of a Pyne strategy, a PyneCore workdir (`scripts/`, `data/`, `output/`), backtests or parameter sweeps of a Python trading strategy, `request.security` multi-timeframe logic, live CCXT feeds through PyneCore, or FreqTrade integration with PyneCore scripts, even when the user just says "write me a strategy", "backtest this idea", "why does my strategy not trade" or "add a stop loss" in a project that contains PyneCore files. Also covers drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`) with the `--viz` NDJSON format and the measured semantics of the `strategy.risk.*` rules.
 ---
 
 # PyneCore strategy development
@@ -113,6 +113,9 @@ Full detail: [references/language.md](references/language.md).
 - **Module-level objects are read-only inside functions**; state goes in `Persistent`.
 - **Plot-family calls (`plot`, `plotshape`, `bgcolor`, `fill`, `hline`, ...) are unconditional
   and live in `main()`'s body**; make the value conditional (`plot(x if cond else na, "X")`).
+  PyneCore renders nothing: plot values go to the plot CSV, styles and drawing objects (`line`,
+  `label`, `box`, `table`, ...) only to the `--viz` NDJSON; `scripts/viz_inspect.py FILE`
+  summarizes that file (see `references/drawings-and-viz.md`).
 - The string namespace is `string`; arrays are Python lists (`array.*` or list methods).
 
 ## 4. Strategy essentials and running
@@ -182,10 +185,11 @@ symptom-to-fix tables.
 | Need | Read |
 |------|------|
 | Language rules, Series/Persistent, isolation, na, libraries, UDTs | `references/language.md` |
-| `@script.strategy` settings, `strategy.*` orders/variables/risk, fills, statistics CSV | `references/strategy-api.md` |
+| `@script.strategy` settings, `strategy.*` orders/variables, fills, `strategy.risk.*` rules with their verified semantics, statistics CSV | `references/strategy-api.md` |
 | Inputs, the script `.toml`, overrides, env vars | `references/inputs-and-settings.md` |
 | All 67 `ta.*` functions with signatures | `references/ta.md` |
 | Bar data, time/session functions, `math`, `array`/`map`, `string`, `barstate`, `timeframe`, `syminfo`, plots, drawings, `log` | `references/lib.md` |
+| Drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`, `chart.point`), object caps, the `--viz` NDJSON format, reading it, `scripts/viz_inspect.py` | `references/drawings-and-viz.md` |
 | Workdir, `pyne run` options, data download/convert/aggregate, the candle cache (`continue`, forming bars, provider mode), symbol `.toml`, bar magnifier, outputs | `references/cli-and-data.md` |
 | The exact format of any `pyne` option, exit codes, prompts in non-interactive shells, `PYNE_*` variables, what each call creates in the workdir | the `pynecore-cli` skill (`references/commands.md`, `references/environment.md`) |
 | `ScriptRunner`, `OHLCV`, `SymInfo`, standalone scripts, trades, sweeps | `references/programmatic.md` |
@@ -206,6 +210,7 @@ symptom-to-fix tables.
 | `scripts/run_paper.py` | Paper trading on a live provider stream: warm-up from the candle cache (appended, never rewritten), simulated fills, per-bar lines, `--bars` / `--duration` stop, same overrides and summary as `run_backtest.py` (project interpreter) |
 | `scripts/run_live.py` | Real orders through `pyne run --broker`: preflight (strategy, broker plugin, credentials, sandbox flag, settings `.toml`), dry run unless `--yes`, log file, quarantine resume command surfaced (project interpreter) |
 | `scripts/summarize_backtest.py` | Turn `_strat.csv` + `_trade.csv` into a short report with warnings (stdlib) |
+| `scripts/viz_inspect.py` | Digest a `--viz` NDJSON file: plots, dynamic colors, bar range, drawing counts, journal events; `--plot ID`, `--bar I`, `--drawings TYPE`, `--json` (stdlib) |
 | `templates/minimal_cli.py` | Workdir-only strategy (EMA crossover, ATR stop/target, explicit sizing and costs); no bootstrap, runs only via `pyne run` / the IDE |
 | `templates/minimal_cli_indicator.py` | Workdir-only indicator (EMA crossover), the shape of `scripts/demo.py` |
 | `templates/strategy_template.py` | Complete strategy: EMA cross + trend filter, ATR stop/target, risk sizing, trailing, time stop, plots, logs; standalone-runnable |

@@ -49,6 +49,11 @@ Read this before declaring a strategy finished. Each entry: symptom, cause, fix.
 | Position still open at the end of the data | Expected | Statistics ignore it; `open_trades` in `run_backtest.py` reports it |
 | Sizes slightly off | Lot rounding to `mincontract`, crypto precision from `basecurrency` | Fix the symbol `.toml` |
 | P&L in the wrong currency scale | `pointvalue` or `currency` in the `.toml` wrong; `currency=` setting does not convert | Fix the `.toml`; compute conversions yourself |
+| Strategy stops trading part-way through the data, no error | A `strategy.risk.max_drawdown` / `max_cons_loss_days` halt is permanent; `max_intraday_loss` and `max_intraday_filled_orders` block the rest of the day | Look for `Close Position (Max ...)` rows in `<script>_trade.csv`; loosen the rule or the test period |
+| `max_drawdown` did not fire although the open position lost more than the threshold | The rule is evaluated only on a bar where a trade closed (realized peak reference) | Add a protective exit; the rule is a backstop, not a stop-loss |
+| Short entry while long only closes the long | `strategy.risk.allow_entry_in(strategy.direction.long)`: opposite entries close instead of reversing | Intended; drop the rule for reversal strategies |
+| Entries are smaller than `qty` | `strategy.risk.max_position_size` trims orders to the cap | Raise the cap or size below it |
+| `alert_message` of a risk rule never appears | Stored but not emitted in 6.12.1 | Log the condition yourself (`log.warning`) or read the trade CSV comments |
 
 ## Lookahead and repainting
 

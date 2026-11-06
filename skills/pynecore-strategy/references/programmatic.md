@@ -280,7 +280,17 @@ runner.run()      # files are complete once the iteration finishes
 
 The viz NDJSON carries plot styles, per-bar values and colors and drawing objects for a
 renderer of your own; `runner.plot_meta` and `runner.drawings()` expose the same state in
-memory.
+memory, and with `viz_journal=True` but no `viz_path` the per-bar drawing events stay in memory:
+
+```python
+runner = ScriptRunner(script, bars, syminfo, viz_journal=True)
+batches: list[list[dict]] = []
+runner.viz_events = batches.append          # one list of {"i", "op", "obj", "id", "s"} per bar
+list(runner.run_iter())
+snapshot = runner.drawings()                # {"lines": [...], "labels": [...], ...}, valid after the run
+```
+
+Format, ids, color encoding and the digest script: [drawings-and-viz.md](drawings-and-viz.md).
 
 ## Importing without running
 
