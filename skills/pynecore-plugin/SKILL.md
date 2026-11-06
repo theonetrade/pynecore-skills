@@ -1,0 +1,127 @@
+---
+name: pynecore-plugin
+license: MIT
+description: Extend PyneCore with plugins. Explains how the `pyne.plugin` entry-point system works (discovery, `pyne plugin list/info`, the Config dataclass that becomes `config/plugins/<name>.toml`, versions and name conflicts), the contracts of `ProviderPlugin`, `LiveProviderPlugin`, `BrokerPlugin` and `CLIPlugin`, and what PyneCore's live runner demands from a provider (eager connect, catch-up, the ~2 s cancellation of `watch_ohlcv`, reconnect loop, feed watchdog, timestamp-based idle-bar synthesis, closed-bar dedup). Ships three complete, tested plugin packages to copy or scaffold: candles from local files (history for backtests, paced replay or a tailed file for live mode), CCXT exchanges over REST polling without websockets, and Telegram notifications for script log lines, `alert()` calls and broker/quarantine events. Use whenever a task mentions a custom data source or feed for PyneCore, writing or debugging a provider / live / broker / CLI plugin, a plugin's TOML config, replaying candles from a file as if live, an exchange where websockets are unavailable, or sending Telegram / webhook notifications from a Pyne strategy.
+---
+
+# PyneCore plugins
+
+A plugin is an installable Python package that registers a class under the `pyne.plugin`
+entry-point group. Its base classes give it capabilities: `ProviderPlugin` (history download),
+`LiveProviderPlugin` (plus a live stream), `BrokerPlugin` (plus order execution), `CLIPlugin`
+(commands and options for `pyne`). Everything PyneCore learns about the plugin comes from the
+package metadata and the class; there is no registration file. Details and the full contracts
+are in `references/plugin-system.md`; the three templates are working packages, tested on
+PyneCore 6.12.1 as described in their reference pages.
+
+## 1. Workflow
+
+```bash
+python3 <skill>/scripts/new_plugin.py fileprovider ./pynecore-myfeed --name myfeed   # scaffold from a template
+pip install -e ./pynecore-myfeed            # into the environment that has pyne (uv pip install -e ...)
+pyne plugin list                            # the new name with its capabilities
+pyne plugin info myfeed                     # class, package, config fields (what config/plugins/myfeed.toml accepts)
+<python> <skill>/scripts/plugin_check.py myfeed --symbol X --timeframe 60 --bars 50 [--live-seconds 90]
+pyne data download myfeed:X@60              # the CLI uses it like any provider
+pyne run my_strategy myfeed:X@60 --live     # live stream (LiveProviderPlugin)
+```
+
+`plugin_check.py` loads the plugin exactly as `pyne` does, lists remaining abstract methods and
+the framework attributes, then (with `--symbol`) builds the provider against a temporary data
+folder, validates the symbol info a run needs, downloads a few bars and can run the real live
+generator for a while. Run it with the interpreter of the environment where the plugin is
+installed. The pyne CLI regenerates `config/plugins/<name>.toml` for every installed plugin at
+each start (commented defaults, user values kept), so the config file appears after the first
+`pyne` call.
+
+## 2. The templates
+
+| Template (plugin name) | Class | What it does | Provider string / commands | Reference |
+|------------------------|-------|--------------|----------------------------|-----------|
+| `pynecore-fileprovider` (`file`) | `FileProvider(LiveProviderPlugin)` | Candles from `.ohlcv`, CSV, JSON or TXT files: history for backtests and `pyne data download`; in live mode the last `replay_bars` bars are streamed as live bars (re-stamped onto the clock, paced, optional intra-bar tick), or the file is tailed for appended rows | `file:BTCUSDT@60`, `config/plugins/file.toml` | `references/file-provider.md` |
+| `pynecore-ccxtrest` (`ccxtrest`) | `CCXTRestProvider(CCXTProvider)` | The built-in ccxt plugin's history, symbol info and exchange config, with live bars from REST polling of `fetch_ohlcv` instead of websockets | `ccxtrest:BINANCE:BTC/USDT@1`, `config/plugins/ccxtrest.toml` (+ `ccxt.toml` exchange tables) | `references/ccxt-rest-provider.md` |
+| `pynecore-telegram` (`telegram`) | `TelegramPlugin(CLIPlugin)` | Forwards script `log.*` lines (realtime bars, level filter), `alert()` calls and `[BROKER]` / quarantine lines to a Telegram chat; `pyne telegram status | test | send TEXT` | `config/plugins/telegram.toml`, `PYNE_TELEGRAM*` env | `references/telegram-notifier.md` |
+
+Each template is a complete package (`pyproject.toml` with the entry point, `src/<package>/__init__.py`,
+README). `new_plugin.py TEMPLATE DEST --name NAME` copies and renames one; without `--name` it
+copies as is.
+
+## 3. The contract in one page
+
+- **Package**: `[project.entry-points."pyne.plugin"] name = "package.module:Class"`; the key is
+  the plugin name (`pyne data download name:...`, `pyne name ...`, `config/plugins/name.toml`).
+  Depend on `pynesys-pynecore[cli]>=6.12,<7`; `pyne plugin info` shows the requirement. The
+  same name from two packages makes the plugin unloadable until one is removed.
+- **Config**: a `@dataclass` assigned to `Config`; attribute docstrings become the comments of
+  the generated TOML; `dict`/`list` fields render as inline tables; `ensure_config(cls, path)`
+  returns the instance the framework passes as `config=`. Keep secrets there, not in code.
+- **ProviderPlugin** (history): constructor `(*, symbol, timeframe, ohlcv_dir, config)`; the
+  base sets `ohlcv_path` (`<name>_<SYMBOL>_<TF>.ohlcv`) and the writer. Implement
+  `to_tradingview_timeframe`, `to_exchange_timeframe`, `get_list_of_symbols`,
+  `update_symbol_info` (a complete `SymInfo`, sessions included, also for 24/7 markets) and
+  `download_ohlcv(time_from, time_to, on_progress, limit, with_extra)`, which writes closed bars
+  through `save_ohlcv_data()` (ascending, duplicates up to the resume point are dropped for
+  you). `multi_broker = True` makes `name:BROKER:SYMBOL` split off the broker and hand you
+  `"BROKER:SYMBOL"`. Raise `ProviderError` / `TransientProviderError` for user-actionable or
+  retryable failures.
+- **LiveProviderPlugin** (stream): `connect()` (called on every reconnect: rebuild all state),
+  `disconnect()`, `is_connected`, `watch_ohlcv(symbol, timeframe)` returning one `OHLCV` with
+  `is_closed=True` for a final bar or `False` for an update; optional `backfill_closed_bars`,
+  `on_disconnect/on_reconnect`, `can_shutdown`; class attributes `feed_timeout_bars`,
+  `initial_connect_timeout`, `reconnect_delay`, `max_reconnect_delay`.
+- **What the live runner does** (verified in 6.12 sources and runs): connects before the warm-up
+  is consumed; bars queued meanwhile are catch-up history; **`watch_ohlcv` is awaited with a
+  timeout of at most 2 s and cancelled on expiry**, so keep progress on `self` or run a
+  background task that fills an `asyncio.Queue`; any exception from `watch_ohlcv` starts the
+  reconnect loop (`disconnect()` → `connect()`, backoff 1 s doubling to 60 s, forever); a feed
+  silent for `feed_timeout_bars` periods is reconnected; **a zero-volume bar is synthesised when
+  the last closed bar's timestamp is more than two periods in the past**, and a later real bar
+  with an older or equal timestamp is dropped, so replayed history must be re-stamped onto the
+  clock; `backfill_closed_bars(since_ms)` is asked once after connect for bars that closed
+  during the handshake.
+- **CLIPlugin**: `cli()` returns a Typer app mounted as `pyne <name>`; `cli_params(command)`
+  injects options into `run` or `data download`. In 6.12 the values reach the provider
+  (`plugin_params`) only for `data download`; `run` parses them and drops them, so do not build
+  a feature on `pyne run --myflag`.
+- **BrokerPlugin**: a live provider that also executes order intents; the authoring guide and
+  the offline conformance lab are in the bundled documentation (`development/broker-plugin-authoring.md`,
+  `advanced/broker-plugin-testing.md`); this skill does not duplicate them.
+- **Notifications**: PyneCore has no notification hook. Script `log.*` lines and the runner's
+  `[BROKER]` lines go through the `pyne_core_logger` logger; `alert()` prints to the console.
+  The Telegram template attaches a logging handler and wraps `alert`; the pyne CLI imports every
+  installed plugin at startup, which is what activates it. Programmatic runners must import the
+  module themselves (`run_paper.py --import pynecore_telegram`).
+
+## 4. Verified on 6.12 (facts a plugin author needs)
+
+- `pyne` imports every installed plugin class at startup (also for `pyne plugin list`); an
+  import error is logged as `Failed to load CLI plugin` and the plugin is skipped. Import-time
+  side effects therefore run for every pyne command: keep them cheap and dormant.
+- `pyne data download` builds the provider for `--list-symbols` **without** `ohlcv_dir`; a
+  provider must not assume the data folder exists at that point.
+- `CCXTProvider.__init__` reads the exchange tables (`[binance]`) from `config/plugins/ccxt.toml`
+  by that fixed name, so a subclass registered under another plugin name inherits them while
+  getting its own `<name>.toml` for its dataclass fields.
+- `download_ohlcv` must return closed bars only; `pyne data download` ends its range at "now",
+  so a provider that forwards the forming bar stores partial values that `continue` never fixes.
+- `save_ohlcv_data()` with a list is one durable write; thousands of single-bar calls are slow.
+- A paced replay of historical bars works only re-stamped (see above); the `replay` plugin that
+  ships with PyneCore emits all fixture bars at once, so with it everything becomes catch-up.
+- Rate-limit outbound notifications: one warning per bar on a 1-minute stream is 60 messages
+  an hour, and Telegram rejects bursts.
+
+## 5. Bundled files
+
+| Path | Use |
+|------|-----|
+| `references/plugin-system.md` | Entry points, discovery, config generation, every contract and the live runner's rules in detail, development loop, mistakes |
+| `references/file-provider.md` | The file provider: design, config, history / replay / tail behaviour, how to adapt it to other formats |
+| `references/ccxt-rest-provider.md` | REST polling on top of the ccxt plugin: task + queue pattern, closed-bar detection, poll interval vs watchdog |
+| `references/telegram-notifier.md` | Notification options, the handler and alert hook, gating, rate limit, CLI commands, programmatic runs, other messengers |
+| `templates/pynecore-fileprovider/`, `templates/pynecore-ccxtrest/`, `templates/pynecore-telegram/` | Installable plugin packages |
+| `scripts/new_plugin.py` | Scaffold a plugin package from a template with new names (stdlib) |
+| `scripts/plugin_check.py` | Load, inspect and probe an installed plugin: static contract, symbol info, download, live stream (project interpreter) |
+
+The stock `pyne` commands are the `pynecore-cli` skill; strategies, the candle cache and the
+paper / live runners are `pynecore-strategy`; the full documentation (plugin system, broker
+authoring, live mode, OHLCV format) is bundled in `pynecore-docs`.

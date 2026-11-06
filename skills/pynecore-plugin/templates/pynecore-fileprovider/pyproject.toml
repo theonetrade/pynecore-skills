@@ -1,0 +1,20 @@
+[project]
+name = "pynecore-fileprovider"
+version = "0.1.0"
+description = "PyneCore data provider that serves candles from local files (.ohlcv, CSV, JSON, TXT): history for backtests, paced replay or a tailed file for live mode"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["pynesys-pynecore[cli]>=6.12"]
+
+# PyneCore discovers plugins through this entry-point group: the key is the plugin name used in
+# provider strings (file:BTCUSDT@60) and in config/plugins/file.toml; the value is module:class.
+[project.entry-points."pyne.plugin"]
+file = "pynecore_fileprovider:FileProvider"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pynecore_fileprovider"]

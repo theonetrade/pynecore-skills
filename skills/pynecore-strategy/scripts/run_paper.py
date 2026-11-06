@@ -247,14 +247,19 @@ def configure_logging(verbose: bool) -> None:
         formatter = logging.Formatter("%(asctime)s %(levelname)-7s %(message)s")
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(formatter)
+    handler.setLevel(level)                    # the console filter lives on this handler, not on the logger,
+    if not verbose:                            # so other handlers (a notifier plugin) still see INFO records
+        handler.addFilter(_OncePerMessage())
     for name in ("pyne_core_logger", "pynecore"):
         lg = logging.getLogger(name)
-        lg.handlers.clear()
+        # replace PyneCore's own console handler(s) only; handlers of other packages (a notifier
+        # plugin imported with --import, for example) stay attached
+        for h in list(lg.handlers):
+            if h.__class__.__module__.startswith("pynecore.") or type(h.formatter).__name__ == "PineLogFormatter":
+                lg.removeHandler(h)
         lg.addHandler(handler)
         lg.propagate = False
-        lg.setLevel(level)
-        if not verbose:
-            lg.addFilter(_OncePerMessage())
+        lg.setLevel(logging.INFO)
 
 
 class StopTimer:
@@ -330,6 +335,10 @@ def main() -> int:
     parser.add_argument("--workdir", type=Path, metavar="DIR",
                         help="PyneCore workdir (its data/, config/, output/ are used). Default: $PYNE_WORK_DIR, else the\n"
                              "first folder from the current directory upwards holding .pyne, else its workdir/ child")
+    parser.add_argument("--import", dest="imports", action="append", metavar="MODULE",
+                        help="import this Python module before the run (repeatable). The pyne CLI imports every installed\n"
+                             "plugin at startup; this script loads only the data provider named in DATA, so a plugin that\n"
+                             "works through import side effects (a notifier such as pynecore_telegram) is named here.")
     parser.add_argument("--quiet", "-q", action="store_true", help="no per-bar lines, only the summary")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="show PyneCore's own INFO log lines (connect, reconnect, shutdown) on stderr")
@@ -372,6 +381,13 @@ def main() -> int:
     from pynecore.core.live_runner import live_ohlcv_generator
     from pynecore.core.script_runner import ScriptRunner
     from pynecore.lib import barstate  # module flags the runner sets per bar: ishistory / isrealtime
+    import importlib
+    os.environ.setdefault("PYNE_WORK_DIR", str(workdir))   # plugins resolve their config in the same workdir
+    for module_name in args.imports or []:
+        try:
+            importlib.import_module(module_name)
+        except ImportError as e:
+            raise SystemExit(f"--import {module_name}: {e}")
 
     provider, ps, name = load_provider(args.data, workdir)
     provider_string = f"{name}:{ps.provider_symbol}@{ps.timeframe}"

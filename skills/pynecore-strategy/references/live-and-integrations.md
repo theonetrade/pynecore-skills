@@ -59,6 +59,9 @@ pyne run my_strategy ccxt:BINANCE:ETH/USDT@60 --live -f -1000 --no-plot # skip t
    machines.
 
 Live bars are not written to the cache; the next run or `download_candles.py` appends them.
+`--import MODULE` imports a module before the run, for plugins that work through import side
+effects (the Telegram notifier of the `pynecore-plugin` skill: `--import pynecore_telegram`);
+the run's workdir is exported as `PYNE_WORK_DIR` so such plugins read the same `config/`.
 Verified on 6.12: Binance spot 1-minute bars over the public websocket (two closed bars,
 simulated position, clean disconnect) and four paper trades with tick-level exits on a paced
 150-bar replay feed.
@@ -198,6 +201,12 @@ if barstate.isrealtime and long_signal:
 
 Gate every side effect with `barstate.isrealtime` (and usually `barstate.isconfirmed`) so the
 historical bars and backtests stay silent. Keep secrets in environment variables.
+
+Without touching the scripts: the `pynecore-plugin` skill ships a Telegram notifier plugin
+that forwards `log.*` lines on realtime bars, `alert()` calls and the runner's `[BROKER]` /
+quarantine lines (`pyne telegram status | test | send`, `config/plugins/telegram.toml`), plus a
+file-based candle provider for deterministic live replays and a REST-polling CCXT provider for
+hosts without websockets.
 
 ## Deployment notes
 

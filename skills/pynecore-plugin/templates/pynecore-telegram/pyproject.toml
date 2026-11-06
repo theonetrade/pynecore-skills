@@ -1,0 +1,18 @@
+[project]
+name = "pynecore-telegram"
+version = "0.1.0"
+description = "Telegram notifications for PyneCore runs: forwards script log lines, alert() calls and broker/quarantine events; adds pyne telegram test/send/status"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["pynesys-pynecore[cli]>=6.12"]
+
+[project.entry-points."pyne.plugin"]
+telegram = "pynecore_telegram:TelegramPlugin"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pynecore_telegram"]

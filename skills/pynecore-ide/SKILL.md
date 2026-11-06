@@ -147,5 +147,6 @@ Never claim a chart looked right or a breakpoint paused somewhere you did not ob
 | `references/project-files.md` | What each generated file contains, what to edit, `.gitignore` recommendations, snippet prefixes |
 
 Writing the scripts themselves is the `pynecore-strategy` skill; the `pyne` CLI (every command,
-option and environment variable) is the `pynecore-cli` skill; the PyneCore documentation is
-bundled in the `pynecore-docs` skill.
+option and environment variable) is the `pynecore-cli` skill; data provider and notifier
+plugins are the `pynecore-plugin` skill; the PyneCore documentation is bundled in the
+`pynecore-docs` skill.
