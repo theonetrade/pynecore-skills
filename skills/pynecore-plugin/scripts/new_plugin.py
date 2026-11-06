@@ -9,6 +9,7 @@ strings and in config/plugins/<name>.toml) and the class names.
     python3 new_plugin.py fileprovider ./pynecore-myfeed --name myfeed
     python3 new_plugin.py ccxtrest ./pynecore-restkraken --name restkraken
     python3 new_plugin.py telegram ./pynecore-discord --name discord --class DiscordPlugin
+    python3 new_plugin.py simbroker ./pynecore-myvenue --name myvenue --class MyVenueBroker
     python3 new_plugin.py telegram ./pynecore-telegram            # a plain copy, same names as the template
 
 Then, in the environment that has pyne:
@@ -18,9 +19,12 @@ Then, in the environment that has pyne:
     <python> <skill>/scripts/plugin_check.py myfeed --symbol X --timeframe 60 --bars 50
 
 Templates (see references/):
-    fileprovider   LiveProviderPlugin reading .ohlcv / CSV / JSON / TXT files: history, paced replay, tail
+    fileprovider   LiveProviderPlugin reading .ohlcv / CSV / JSON / TXT / parquet / SQLite files, aggregating
+                   to a higher timeframe on demand: history, paced replay, tail
     ccxtrest       LiveProviderPlugin on top of the built-in ccxt plugin, live bars by REST polling
     telegram       CLIPlugin forwarding log lines, alert() calls and broker events to Telegram
+    simbroker      BrokerPlugin + CLIPlugin: a simulated netting venue fed by any provider plugin, with an
+                   offline conformance suite (broker_lab/suite.py) for python -m pynecore.testing.broker_lab
 """
 from __future__ import annotations
 
@@ -40,6 +44,8 @@ TEMPLATES = {
                  "cls": "CCXTRestProvider", "cfg": "CCXTRestConfig", "suffix": "Provider"},
     "telegram": {"dist": "pynecore-telegram", "pkg": "pynecore_telegram", "key": "telegram",
                  "cls": "TelegramPlugin", "cfg": "TelegramConfig", "suffix": "Plugin"},
+    "simbroker": {"dist": "pynecore-simbroker", "pkg": "pynecore_simbroker", "key": "simbroker",
+                  "cls": "SimBroker", "cfg": "SimBrokerConfig", "suffix": "Broker"},
 }
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 TEXT_SUFFIXES = {".py", ".toml", ".md", ".txt", ".cfg", ".ini"}
@@ -58,6 +64,10 @@ def rewrite(text: str, old: dict, new: dict) -> str:
         (f'plugins/{old["key"]}.toml', f'plugins/{new["key"]}.toml'),       # config path in docstrings and READMEs
         (f'{old["key"]}:', f'{new["key"]}:'),                               # provider strings in examples
         (f'pyne {old["key"]} ', f'pyne {new["key"]} '),                     # CLI group in examples
+        (f'pyne plugin info {old["key"]}', f'pyne plugin info {new["key"]}'),
+        (f'PLUGIN_NAME = "{old["key"]}"', f'PLUGIN_NAME = "{new["key"]}"'),   # module constant the code derives file names from
+        (f'{old["key"]}_<', f'{new["key"]}_<'),                               # file-name patterns in docs: file_<SYMBOL>_<TF>.ohlcv
+        (f'{old["key"]}-<', f'{new["key"]}-<'),                               # identity patterns in docs: simbroker-<account>
         (old["cfg"], new["cfg"]),
         (old["cls"], new["cls"]),
     ]

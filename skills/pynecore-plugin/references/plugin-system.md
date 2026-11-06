@@ -275,13 +275,33 @@ class MyToolPlugin(CLIPlugin[MyConfig]):
 
 `BrokerPlugin(LiveProviderPlugin)` adds order execution: `get_capabilities()` returning
 `ExchangeCapabilities` with `CapabilityLevel`s, `execute_entry/exit/close/cancel(envelope)`,
-`get_position(symbol)`, balance and order queries, an `account_id`, and a `RunContext`
-(`self.store_ctx`, SQLite journal in `output/logs/broker.sqlite`) wired in by `ScriptRunner`.
-The engine owns idempotency, retries, reconciliation and quarantine. Read the bundled
-`development/broker-plugin-authoring.md` (contract checklist: disappearance detection,
-incremental fills, client-id echo, lifecycle order) and `advanced/broker-plugin-testing.md`
-(offline conformance lab, demo-account matrix, release criteria) before writing one; shipped
-examples are `pynesys-pynecore-bybit`, `-capitalcom`, `-ctrader`.
+`modify_entry/modify_exit`, `execute_cancel_with_outcome`, `get_position(symbol)`, balance and
+order queries, `watch_orders`, an `account_id`, and a `RunContext` (`self.store_ctx`, SQLite
+journal in `output/logs/broker.sqlite`) wired in by `ScriptRunner`. The engine owns idempotency,
+retries, reconciliation and quarantine; the plugin owns the venue mapping. What the template
+(`templates/pynecore-simbroker`, `sim-broker.md`) implements and the lab verifies:
+
+| Rule | In the template |
+|------|-----------------|
+| `_account_id` is set in `__init__` | the run identity `<script>@<account>:<SYMBOL>:<TF>` is derived from it before `connect()` |
+| one venue order per leg, client id `envelope.client_order_id(KIND_ENTRY / KIND_EXIT_TP / KIND_EXIT_SL / KIND_CLOSE)` | `_record()`; a repeated id with an open or filled order returns that order, a spent id raises `ClientOrderIdSpentError` |
+| `ensure_venue_writes_allowed()` before every write | first line of `_record()`, `_cancel_matching()`, the amend helpers |
+| a journal row for every placed leg | `store_ctx.upsert_order(coid, symbol=, side=, qty=, state=, intent_key=, exchange_order_id=, from_entry=, pine_entry_id=, filled_qty=)` |
+| fills are incremental and carry a stable `fill_id` | `SimVenue._fill` emits `OrderEvent(fill_qty=<this fill>, fill_id="<order>:<n>")`; `watch_orders` drains them per owner |
+| venue-driven cancels carry a reason | `CANCEL_REASON_VENUE_OCA` after a sibling fill, `CANCEL_REASON_VENUE_POSITION_CLEARED` for a reduce-only order with nothing left |
+| anything else the venue did on its own is an intervention | `_on_bar` → `report_external_intervention(...)` plus a `cancelled` event with `from_disappearance_tracker=True`; the engine quarantines and prints the `pyne broker resume` command |
+| exit amend after a partial fill | `remaining_qty = intent qty`, `qty = filled + intent qty`, missing legs added, dropped levels cancelled |
+| capabilities are honest | `NATIVE` for what the venue matches itself, `SOFTWARE` for `cancel_all` |
+
+Offline testing: `python -m pynecore.testing.broker_lab run SUITE --mode smoke|extended --seed N`
+with a suite module exposing `build_suite(mode, seed)`; a `ReferenceVenueProfile` subclass whose
+`create_broker(run_name, store_ctx)` returns the real plugin attached to a shared fake venue,
+`Scenario(name, profile_factory, seed, steps, runs, expected_violation)` and `Step(kind, run,
+values, check_invariants)`. Include a **control** scenario that breaks a rule on purpose with
+`expected_violation`, so a silent oracle is noticed. Read the bundled
+`development/broker-plugin-authoring.md` (contract checklist) and
+`advanced/broker-plugin-testing.md` (lab, demo-account matrix, release criteria) before writing a
+plugin for a real venue; shipped examples are `pynesys-pynecore-bybit`, `-capitalcom`, `-ctrader`.
 
 ## Notifications and other side channels
 
@@ -327,3 +347,8 @@ import the module (or call `install()`).
 | Notifier found the wrong `config/plugins/<name>.toml` | the plugin resolved the workdir from `cwd` while the runner used `--workdir` | set `PYNE_WORK_DIR` for the run; the plugin reads `app_state` first when the CLI is present |
 | `pyne run --myflag`: option accepted, plugin never sees it | `run` does not forward injected options in 6.12 | TOML / environment switches |
 | First `pyne` call after installing the plugin is slow or prints a warning | heavy or failing import at plugin load | keep module import cheap; import SDKs inside methods |
+| Broker lab `fill` step fails with `upsert_order ... missing required fields` | the plugin placed a leg without writing its journal row | `store_ctx.upsert_order(...)` with symbol, side, qty, state, intent_key, exchange_order_id for every leg |
+| Lab oracle: coverage shortfall after a partial exit fill | exit amend reported the intent quantity as the order's total | `remaining_qty = intent qty`, `qty = filled + intent qty` |
+| `pyne data download` through a delegating broker wrote an empty file | the CLI swapped the broker's writer after the feed had been pointed at the old one | re-point the feed's writer inside `download_ohlcv` |
+| `file:SYMBOL@240` on an hourly file: "no source" | the resolver only looked for `SYMBOL_240.*` | also scan `SYMBOL_<tf>.*` and accept a `tf` that `validate_aggregation` allows |
+| Replay at a higher timeframe starts with a torn first bar | the replay cut fell inside a target period | move the cut to the first source bar that opens a new target period (`Resampler.get_bar_time`) |
