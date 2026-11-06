@@ -185,14 +185,14 @@ expression is a `SyntaxError` at load time. Make the **value** conditional inste
 
 | Call | CSV column | Notes |
 |------|------------|-------|
-| `plot(series, title=None, color=None, linewidth=1, style=None, trackprice=False, histbase=0.0, offset=0, join=False, show_last=None, display=None, format=None, precision=None, force_overlay=False)` | yes, `title` | returns a `Plot` for `fill()`; styles `plot.style_line`, `style_stepline`, `style_histogram`, `style_columns`, `style_area`, `style_circles`, `style_cross`, `style_linebr`, ... |
+| `plot(series, title=None, color=None, linewidth=1, style=None, trackprice=False, histbase=0.0, offset=0, join=False, show_last=None, display=None, format=None, precision=None, force_overlay=False)` | yes, `title` | returns a `Plot` for `fill()`; styles `plot.style_line`, `style_linebr`, `style_stepline`, `style_steplinebr`, `style_stepline_diamond`, `style_histogram`, `style_columns`, `style_area`, `style_areabr`, `style_circles`, `style_cross` (`plot.linestyle_solid/dashed/dotted` are defined but `plot()` takes no `linestyle` in 6.12.1) |
 | `plotshape(series, title=None, style=shape.xcross, location=location.abovebar, color=None, text=None, textcolor=None, size=size.auto, offset=0, ...)` | yes, 1/0 for bools or the raw number | marker where `series` is true |
 | `plotchar(series, title=None, char="★", location=..., color=..., text=..., ...)` | yes | |
 | `plotarrow(series, title=None, colorup=None, colordown=None, minheight=5, maxheight=100, ...)` | yes | |
 | `plotcandle(o, h, l, c, title=None, color=None, wickcolor=None, bordercolor=None, ...)`, `plotbar(o, h, l, c, ...)` | four columns `<title> (open)` ... | |
 | `bgcolor(color, offset=0, ...)`, `barcolor(color, ...)` | no | `na` leaves the bar unpainted |
 | `fill(plot1, plot2, color)`, `fill(hline1, hline2, color)`, gradient form `fill(p1, p2, top_value, bottom_value, top_color, bottom_color)` | no | |
-| `hline(price, title="", color=color.blue, linestyle=hline.style_solid, linewidth=1)` | no | constant color only |
+| `hline(price, title="", color=color.blue, linestyle=hline.style_solid, linewidth=1)` | no | constant color only; `hline.style_solid/dashed/dotted` |
 | `alertcondition(condition, title=None, message=None)` | no | accepted, does nothing |
 
 Alternatively `main()` returns a dict `{"Title": value}`; both mechanisms can be combined. Plot
@@ -249,7 +249,7 @@ appear the same way when downloaded with `--extra-data`.
 
 | Namespace | Members |
 |-----------|---------|
-| `display` | `all`, `none`, `pane`, `data_window`, `price_scale`, `status_line` (combinable with `+`) |
+| `display` | `all`, `none`, `pane`, `data_window`, `price_scale`, `status_line`, `pine_screener` (combinable with `+`) |
 | `format` | `inherit`, `price`, `volume`, `percent`, `mintick` |
 | `location` | `abovebar`, `belowbar`, `top`, `bottom`, `absolute` |
 | `shape` | `xcross`, `cross`, `circle`, `triangleup`, `triangledown`, `flag`, `arrowup`, `arrowdown`, `square`, `diamond`, `labelup`, `labeldown` |
@@ -260,6 +260,9 @@ appear the same way when downloaded with `--extra-data`.
 | `order` | `ascending`, `descending` |
 | `barmerge` | `gaps_off`, `gaps_on`, `lookahead_off`, `lookahead_on`, `lookahead_last_closed` |
 | `currency` | `USD`, `EUR`, `USDT`, `BTC`, `ETH`, ... `NONE` |
-| `text` | `align_left/center/right/top/bottom`, `wrap_none/word`, `format_none/bold/italic` |
+| `text` | `align_left/center/right/top/bottom`, `wrap_none/auto`, `format_none/bold/italic` |
 | `font` | `family_default`, `family_monospace` |
 | `scale` | `right`, `left`, `none` |
+| `line` / `polyline` / `hline` styles | `style_solid`, `style_dotted`, `style_dashed`, plus `style_arrow_left/right/both` for `line` and `polyline` |
+| `label` styles | `style_label_up/down/left/right/center`, `style_label_upper_left/upper_right/lower_left/lower_right`, `style_arrowup/arrowdown`, `style_triangleup/triangledown`, `style_circle`, `style_square`, `style_diamond`, `style_flag`, `style_cross`, `style_xcross`, `style_text_outline`, `style_none` |
+| `chart` | `chart.point` (constructors `new/from_index/from_time/now/copy`), `bg_color` `#000000`, `fg_color` `#FFFFFF`, `is_standard` `True`, `is_heikinashi/is_kagi/is_linebreak/is_pnf/is_range/is_renko` `False`, `right_visible_bar_time` = the last bar's time, `left_visible_bar_time` = 20 periods before it (verified) |
