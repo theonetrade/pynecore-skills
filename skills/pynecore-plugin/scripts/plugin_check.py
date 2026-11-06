@@ -221,10 +221,17 @@ def probe(cls, name: str, symbol: str, timeframe: str, bars: int, live_seconds: 
 
         now = datetime.now(timezone.utc)
         time_from = now - timedelta(milliseconds=tf_ms * (bars + 2))
+        window_note = ""
         try:
             with provider as writer:
                 provider.download_ohlcv(time_from.replace(tzinfo=None), now.replace(tzinfo=None))
                 written = writer.size
+                if written == 0 and cls.fetch_all_by_default:
+                    # a static source (a file) may end long before now: ask for everything, as `continue`
+                    # with no file does for such providers, and look at its last bars
+                    provider.download_ohlcv(datetime(1970, 1, 1), now.replace(tzinfo=None))
+                    written = writer.size
+                    window_note = "  (nothing in the recent window; whole range requested as fetch_all_by_default allows)"
         except Exception as e:  # noqa: BLE001
             rep.fail("download_ohlcv", f"{type(e).__name__}: {e}")
             return
@@ -233,13 +240,14 @@ def probe(cls, name: str, symbol: str, timeframe: str, bars: int, live_seconds: 
             rows = list(reader.read_from(reader.start_timestamp, reader.end_timestamp)) if reader.size else []
             period = reader.period
         if not rows:
-            rep.fail("download_ohlcv", "no bars written for the requested window")
+            rep.fail("download_ohlcv", f"no bars written for the last {bars} periods (closed market, or a static source "
+                                       f"ending earlier: give a timeframe/symbol with recent data)")
             return
         ascending = all(a.timestamp < b.timestamp for a, b in zip(rows, rows[1:]))
         last_open = rows[-1].timestamp
         forming = last_open + tf_ms > int(now.timestamp() * 1000)
         detail = (f"{written} bar(s) {datetime.fromtimestamp(rows[0].timestamp / 1000, tz=timezone.utc):%Y-%m-%d %H:%M} -> "
-                  f"{datetime.fromtimestamp(last_open / 1000, tz=timezone.utc):%Y-%m-%d %H:%M} UTC  period {period}")
+                  f"{datetime.fromtimestamp(last_open / 1000, tz=timezone.utc):%Y-%m-%d %H:%M} UTC  period {period}{window_note}")
         if not ascending:
             rep.fail("download_ohlcv", detail + "  timestamps not strictly ascending")
         elif forming:
@@ -251,6 +259,8 @@ def probe(cls, name: str, symbol: str, timeframe: str, bars: int, live_seconds: 
             if not issubclass(cls, LiveProviderPlugin):
                 rep.warn("live", "not a live provider; --live-seconds ignored")
                 return
+            import _thread
+            import threading
             from pynecore.core.live_runner import live_ohlcv_generator
             counts = {"closed": 0, "intrabar": 0}
             first_at = None
@@ -258,18 +268,14 @@ def probe(cls, name: str, symbol: str, timeframe: str, bars: int, live_seconds: 
             last_ts = None
             t0 = time.monotonic()
             gen = None
+            # A generator cannot be closed from another thread while it is executing, so the deadline
+            # raises KeyboardInterrupt in this thread (like Ctrl+C) and the stream is closed here.
+            timer = threading.Timer(live_seconds, _thread.interrupt_main)
+            timer.daemon = True
             try:
                 gen = live_ohlcv_generator(provider=provider, symbol=provider.symbol or symbol, timeframe=timeframe,
                                            syminfo=info, last_historical_timestamp=last_open, shutdown_timeout=10.0)
-                import threading
-
-                def stop_later():
-                    time.sleep(live_seconds)
-                    try:
-                        gen.close()
-                    except Exception:  # noqa: BLE001
-                        pass
-                threading.Thread(target=stop_later, daemon=True).start()
+                timer.start()
                 for item in gen:
                     if not hasattr(item, "timestamp"):
                         continue                      # LIVE_TRANSITION sentinel
@@ -281,9 +287,18 @@ def probe(cls, name: str, symbol: str, timeframe: str, bars: int, live_seconds: 
                         if last_ts is not None and item.timestamp <= last_ts:
                             monotonic = False
                         last_ts = item.timestamp
+            except KeyboardInterrupt:
+                pass                                  # the deadline
             except Exception as e:  # noqa: BLE001
                 rep.fail("live stream", f"{type(e).__name__}: {e}")
                 return
+            finally:
+                timer.cancel()
+                if gen is not None:
+                    try:
+                        gen.close()                   # stops the stream thread, disconnects the provider
+                    except RuntimeError:
+                        pass
             detail = (f"{counts['closed']} closed bar(s), {counts['intrabar']} intra-bar update(s) in {live_seconds:.0f}s; "
                       f"first update after {first_at:.1f}s" if first_at is not None else
                       f"no update within {live_seconds:.0f}s (expected when the bar is longer than the probe)")

@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pynecore.core.plugin import override
@@ -55,6 +55,9 @@ class CCXTRestProvider(CCXTProvider):
     def __init__(self, *, symbol: str | None = None, timeframe: str | None = None,
                  ohlcv_dir: Path | None = None, config: CCXTRestConfig | None = None):
         super().__init__(symbol=symbol, timeframe=timeframe, ohlcv_dir=ohlcv_dir, config=config)
+        # ccxt's own per-request timeout (ms) also covers load_markets()/exchangeInfo, which runs before
+        # connect() and can take >10 s on large venues; ccxt's default is 10 s
+        self._client.timeout = int(self._rcfg.request_timeout * 1000)
         self._rest_connected = False
         self._queue: asyncio.Queue[OHLCV | BaseException] | None = None
         self._poll_task: asyncio.Task | None = None
@@ -64,6 +67,22 @@ class CCXTRestProvider(CCXTProvider):
     @property
     def _rcfg(self) -> CCXTRestConfig:
         return self.config if isinstance(self.config, CCXTRestConfig) else CCXTRestConfig()
+
+    # ------------------------------------------------------------------ history
+
+    @override
+    def download_ohlcv(self, time_from: datetime, time_to: datetime, on_progress=None, limit=None, with_extra=False):
+        """The built-in download, with the end clamped to the last closed bar: the stock ccxt plugin stores the
+        candle still forming when the range ends "now", and a later `continue` never rewrites it."""
+        tf_ms = self._tf_ms()
+        now_ms = self._client.milliseconds()
+        closed_end = datetime.fromtimestamp(((now_ms // tf_ms) * tf_ms - 1) / 1000, tz=timezone.utc).replace(tzinfo=None)
+        end = time_to.replace(tzinfo=None) if time_to.tzinfo else time_to
+        if end > closed_end:
+            end = closed_end
+        if end <= (time_from.replace(tzinfo=None) if time_from.tzinfo else time_from):
+            return                                      # nothing closed in the window yet
+        super().download_ohlcv(time_from, end, on_progress=on_progress, limit=limit, with_extra=with_extra)
 
     # ------------------------------------------------------------------ lifecycle
 

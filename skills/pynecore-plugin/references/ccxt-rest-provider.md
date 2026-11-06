@@ -63,6 +63,10 @@ disconnect()         cancel the task
 
 Design points:
 
+- **History ends at the last closed bar**: `download_ohlcv` clamps `time_to` to the last
+  completed slot before calling the inherited download. The stock ccxt plugin stores the candle
+  still forming when a range ends "now" (and `continue` never rewrites it); this plugin follows
+  the closed-bars-only rule of the provider contract instead.
 - **Task + queue** keeps `watch_ohlcv` cancellation-safe: the runner awaits it with a timeout of
   at most 2 s and cancels it; a `queue.get()` loses nothing, whereas a `to_thread(fetch_ohlcv)`
   awaited directly would be abandoned mid-flight.
@@ -84,6 +88,7 @@ Design points:
 | `pyne plugin list` | `ccxtrest  CCXT REST  v0.1.0  [provider]` |
 | `pyne data download ccxtrest:BINANCE:BTC/USDT@60 --from 3` | `ccxtrest_BINANCE_BTC_USDT_60.ohlcv` + `.toml`, `ccxtrest.toml` generated |
 | `run_paper.py ema_cross ccxtrest:BINANCE:BTC/USDT@1 --from -300 --bars 2` | 341 bars appended to the cache, connect, two closed 1-minute bars 12:42 and 12:43 UTC delivered within seconds of their close, graceful shutdown, exit 0 |
+| `plugin_check.py ccxtrest --symbol BINANCE:BTC/USDT --timeframe 1 --bars 20 --live-seconds 80` | all static checks pass (`multi_broker=True`, `feed_timeout_bars=30` inherited, `backfill_closed_bars` overridden), symbol info `BINANCE:BTCUSDT mintick 0.01`, download of the last 20 closed bars, live stream: 2 closed bars and 16 intra-bar updates in 80 s, first update immediately |
 
 ## Adapting the template
 
