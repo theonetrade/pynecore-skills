@@ -195,7 +195,8 @@ expression is a `SyntaxError` at load time. Make the **value** conditional inste
 | `hline(price, title="", color=color.blue, linestyle=hline.style_solid, linewidth=1)` | no | constant color only; `hline.style_solid/dashed/dotted` |
 | `alertcondition(condition, title=None, message=None)` | no | accepted, does nothing |
 
-Alternatively `main()` returns a dict `{"Title": value}`; both mechanisms can be combined. Plot
+Alternatively `main()` returns a dict `{"Title": value}`; both mechanisms can be combined (an
+indicator's whole output side, settings and checks: [indicators.md](indicators.md)). Plot
 values are what `ScriptRunner.run_iter()` yields as `plot_data` and what the plot CSV contains,
 so plotting a signal (`plot(1 if long_signal else 0, "enter_long")`) is the way to export
 decisions to external code.

@@ -148,7 +148,8 @@ skills/
 │   ├── SKILL.md                      # workflow, essential rules, reference map
 │   ├── references/                   # language, strategy-api, inputs-and-settings, ta, lib,
 │   │                                 # cli-and-data, programmatic, multi-timeframe,
-│   │                                 # live-and-integrations, patterns, pitfalls
+│   │                                 # live-and-integrations, patterns, pitfalls, indicators,
+│   │                                 # drawings-and-viz, monte-carlo
 │   ├── scripts/                      # init_project.py, pyne_env.py, new_script.py, download_candles.py,
 │   │                                 # run_backtest.py, run_paper.py, run_live.py, summarize_backtest.py, viz_inspect.py,
 │   │                                 # monte_carlo.py

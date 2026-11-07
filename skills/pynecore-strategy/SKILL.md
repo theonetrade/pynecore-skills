@@ -81,7 +81,8 @@ Rules that follow from it:
 6. **Report**: script path, data and date range, settings used, key metrics, what was checked,
    what remains unverified (for example anything that needs live data or a chart renderer).
 
-For indicators the same flow applies without the order/exit steps; for libraries use
+For indicators the same flow applies without the order/exit steps (settings, custom recursive
+indicators, the script-level `timeframe=`, checking and reuse: `references/indicators.md`); for libraries use
 `--kind library` and import with `from lib.<publisher>.<name>.v1 import ...`.
 
 ## 3. Language essentials (the rules that break hand-written code)
@@ -192,6 +193,7 @@ symptom-to-fix tables.
 | `@script.strategy` settings, `strategy.*` orders/variables, fills, `strategy.risk.*` rules with their verified semantics, statistics CSV | `references/strategy-api.md` |
 | Inputs, the script `.toml`, overrides, env vars | `references/inputs-and-settings.md` |
 | All 67 `ta.*` functions with signatures | `references/ta.md` |
+| Writing an indicator: `@script.indicator` settings and their real effect, custom recursive indicators, history depth (5000), script-level `timeframe=` vs `request.security`, output, checking against a reference, reuse through libraries / pandas | `references/indicators.md` |
 | Bar data, time/session functions, `math`, `array`/`map`, `string`, `barstate`, `timeframe`, `syminfo`, plots, drawings, `log` | `references/lib.md` |
 | Drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`, `chart.point`), object caps, the `--viz` NDJSON format, reading it, `scripts/viz_inspect.py` | `references/drawings-and-viz.md` |
 | Workdir, `pyne run` options, data download/convert/aggregate, the candle cache (`continue`, forming bars, provider mode), symbol `.toml`, bar magnifier, outputs | `references/cli-and-data.md` |
