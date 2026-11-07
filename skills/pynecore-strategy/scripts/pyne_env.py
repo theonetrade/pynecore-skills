@@ -234,8 +234,8 @@ def uses_uv(root: Path) -> bool:
 
 # ---------------------------------------------------------------- report
 
-def build_report(root: Path) -> dict:
-    workdir, how = find_workdir(root)
+def build_report(root: Path, env_workdir: Path | None = None) -> dict:
+    workdir, how = (env_workdir, "$PYNE_WORK_DIR") if env_workdir is not None else find_workdir(root)
     pythons = find_python(root, workdir)
     best = pythons[0] if pythons else None
     report: dict = {
@@ -325,16 +325,22 @@ def print_human(r: dict) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("--root", default=".", metavar="DIR",
+    parser.add_argument("--root", default=None, metavar="DIR",
                         help="project folder to inspect; relative or absolute path. The workdir is searched in DIR\n"
                              "and up to 10 parent folders (.pyne marker, the scripts/ data/ config/ layout, or a\n"
                              "workdir/ child); virtual environments are looked up in DIR, the workdir and its parent.\n"
-                             "Default: the current directory")
+                             "Default: $PYNE_WORK_DIR as the workdir when it is set (the pyne CLI rule), else the\n"
+                             "current directory")
     parser.add_argument("--json", action="store_true",
                         help="print one JSON object (root, workdir, structure, scripts, data, config, python,\n"
                              "pynecore_version, pyne_cli, ...) instead of the text report")
     args = parser.parse_args()
-    report = build_report(Path(args.root))
+    env = os.environ.get("PYNE_WORK_DIR")
+    if args.root is None and env:
+        env_workdir = Path(env).expanduser().resolve()
+        report = build_report(env_workdir, env_workdir)
+    else:
+        report = build_report(Path(args.root or "."))
     if args.json:
         print(json.dumps(report, indent=2))
     else:

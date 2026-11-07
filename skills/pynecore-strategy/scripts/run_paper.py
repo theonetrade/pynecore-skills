@@ -378,7 +378,7 @@ def main() -> int:
     except ImportError:
         raise SystemExit("pynecore is not importable: run this script with the project's interpreter (.venv/bin/python)")
     from pynecore.core.live_runner import live_ohlcv_generator
-    from pynecore.core.script_runner import ScriptRunner
+    from pynecore.core.script_runner import ScriptRunner, import_script
     from pynecore.lib import barstate  # module flags the runner sets per bar: ishistory / isrealtime
     import importlib
     os.environ.setdefault("PYNE_WORK_DIR", str(workdir))   # plugins resolve their config in the same workdir
@@ -387,6 +387,13 @@ def main() -> int:
             importlib.import_module(module_name)
         except ImportError as e:
             raise SystemExit(f"--import {module_name}: {e}")
+
+    if inputs or settings:
+        # an unknown --input / --setting name would otherwise surface only after the feed is connected
+        try:
+            import_script(script, inputs=inputs or None, settings=settings or None)
+        except ValueError as e:
+            raise SystemExit(f"error: {e}")
 
     provider, ps, name = load_provider(args.data, workdir)
     provider_string = f"{name}:{ps.provider_symbol}@{ps.timeframe}"
@@ -402,6 +409,15 @@ def main() -> int:
     if start[0] == "bars" and len(bars) < start[1]:
         print(f"! only {len(bars)} cached bars for a warm-up of {start[1]}; extend the cache with download_candles.py",
               file=sys.stderr)
+    pm = period_ms(ps.timeframe)
+    if start[0] == "ms" and pm and bars[0].timestamp > start[1] + pm:
+        # the cache only grows at its end: a date before its first bar cannot be honoured silently
+        wanted = (bars[-1].timestamp - start[1]) // pm + 1
+        print(f"! the cache starts at {ts_text(bars[0].timestamp)} UTC, after --from {ts_text(start[1])}: "
+              f"{len(bars)} warm-up bars instead of about {wanted}. Bars are only appended to its end; rebuild it "
+              f"from that date (CCXT feeds: download_candles.py {ps.symbol} -tf {ps.timeframe}"
+              + (f" --exchange {ps.broker.lower()}" if ps.broker else "")
+              + f" --from {ts_text(start[1])[:10]} --truncate)", file=sys.stderr)
     last_hist_ts = bars[-1].timestamp
     if not quiet:
         print(f"warm-up: {len(bars)} bars  {ts_text(bars[0].timestamp)} -> {ts_text(last_hist_ts)} UTC   "

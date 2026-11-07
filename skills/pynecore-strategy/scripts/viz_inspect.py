@@ -39,13 +39,19 @@ def load(path: Path) -> list[dict]:
     except OSError as e:
         raise SystemExit(f"cannot read {path}: {e}")
     records = []
-    for n, line in enumerate(text.splitlines(), 1):
+    lines = text.splitlines()
+    last = max((i for i, line in enumerate(lines) if line.strip()), default=-1)
+    for n, line in enumerate(lines, 1):
         line = line.strip()
         if not line:
             continue
         try:
             records.append(json.loads(line))
         except json.JSONDecodeError as e:
+            if n - 1 == last and not text.endswith("\n"):
+                # a live run is still writing: its last record is not complete yet
+                print(f"note: {path}:{n}: last line incomplete (a run still writing?), skipped", file=sys.stderr)
+                continue
             raise SystemExit(f"{path}:{n}: not JSON ({e})")
     if not records or records[0].get("t") != "hdr":
         raise SystemExit(f"{path}: not a viz stream (first record must be \"t\": \"hdr\")")

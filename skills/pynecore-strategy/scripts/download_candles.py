@@ -168,6 +168,29 @@ def load_config(workdir: Path | None):
     return ensure_config(CCXTConfig, path)
 
 
+def exchange_table_warning(workdir: Path | None, data_dir: Path) -> str | None:
+    """PyneCore's CCXT provider reads the exchange tables ([okx], [bybit]: keys, sandbox, hosts, options,
+    proxies) from <data folder>/../config/plugins/ccxt.toml, whatever workdir the caller uses. A data folder
+    outside the workdir therefore downloads without the workdir's tables; say so before it happens."""
+    if workdir is None:
+        return None
+    ours = workdir / "config" / "plugins" / "ccxt.toml"
+    used = data_dir.parent / "config" / "plugins" / "ccxt.toml"
+    if not ours.is_file() or (used.is_file() and used.resolve() == ours.resolve()):
+        return None
+    try:
+        import tomllib
+        tables = [k for k, v in tomllib.loads(ours.read_text(encoding="utf-8")).items() if isinstance(v, dict)]
+    except (OSError, ValueError):
+        return None
+    if not tables:
+        return None
+    return (f"warning: --data-dir {data_dir} is outside the workdir: PyneCore reads the exchange tables from "
+            f"{used}{' (missing)' if not used.is_file() else ''}, not from {ours}, so "
+            f"{', '.join('[' + n + ']' for n in tables)} (keys, sandbox, hosts, options) do not apply to this run. "
+            f"Use a data folder inside the workdir (the default <workdir>/data) or put a ccxt.toml at {used}")
+
+
 def candle_path(exchange: str, symbol: str, tf: str, data_dir: Path) -> Path:
     from pynecore.providers.ccxt import CCXTProvider
 
@@ -389,7 +412,9 @@ def main() -> int:
                              "$PYNE_WORK_DIR, else the first folder from the current directory upwards holding .pyne,\n"
                              "else its workdir/ child (the pyne CLI rule).")
     parser.add_argument("--data-dir", type=Path, metavar="DIR",
-                        help="folder for the .ohlcv/.toml files; created if missing. Default: <workdir>/data")
+                        help="folder for the .ohlcv/.toml files; created if missing. Default: <workdir>/data. PyneCore reads\n"
+                             "the exchange tables of ccxt.toml from DIR/../config/plugins/, so a folder outside the workdir\n"
+                             "runs without the workdir's [exchange] tables (a warning says so)")
     parser.add_argument("--quiet", "-q", action="store_true", help="no progress output on stderr")
     parser.add_argument("--json", action="store_true",
                         help="print the results as a JSON list (one object per SYMBOL, same keys as the text output:\n"
@@ -432,6 +457,10 @@ def main() -> int:
             for st in results:
                 print_status(st, data_dir)
         return 0 if all(r["ok"] for r in results) else 1
+
+    warning = exchange_table_warning(workdir, data_dir)
+    if warning:
+        print(warning, file=sys.stderr)
 
     try:
         config = load_config(workdir)

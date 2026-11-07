@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -188,10 +189,11 @@ def print_report(root: Path, workdir: Path, how: str, r: dict, created: list[str
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("--root", default=".", metavar="DIR",
+    parser.add_argument("--root", default=None, metavar="DIR",
                         help="project folder to check; relative or absolute path. The workdir is DIR itself when it\n"
                              "holds .pyne (or scripts/ and data/), else DIR/workdir when that exists, else DIR.\n"
-                             "Default: the current directory")
+                             "Default: $PYNE_WORK_DIR as the workdir when it is set (the pyne CLI rule), else the\n"
+                             "current directory")
     parser.add_argument("--create", action="store_true",
                         help="create what is missing in the workdir: scripts/, data/, config/, output/, cache/,\n"
                              "scripts/lib/, config/plugins/, output/logs/, the .pyne marker, config/.gitignore and\n"
@@ -201,8 +203,13 @@ def main() -> int:
                              "data, missing_required, missing_recommended, ...) instead of the text report")
     args = parser.parse_args()
 
-    root = Path(args.root).resolve()
-    workdir, how = locate_workdir(root)
+    env = os.environ.get("PYNE_WORK_DIR")
+    if args.root is None and env:                    # the pyne CLI rule: an explicit folder wins, then the variable
+        root = Path(env).expanduser().resolve()
+        workdir, how = root, "$PYNE_WORK_DIR"
+    else:
+        root = Path(args.root or ".").resolve()
+        workdir, how = locate_workdir(root)
     created: list[str] = []
     if args.create:
         created = create_missing(workdir)

@@ -22,6 +22,8 @@ What is created inside DIR (existing files are never overwritten):
     output/  output/logs/  run outputs
     cache/
     pyproject.toml         dependency on pynesys-pynecore (uv project)      [--no-env skips]
+                           an existing one gets it via `uv add` when missing; one without a
+                           [project] table is refused in uv mode (use --env pip)
     .venv/  uv.lock        the environment (uv), or .venv via venv + pip   [--no-env skips]
     pyrightconfig.json     type-checker relaxations for Series             [--no-pyright skips]
     .gitignore             output/, cache/, data/*.ohlcv, .venv/, ...
@@ -37,6 +39,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 MARKER_CONTENT = (
@@ -135,22 +138,57 @@ def venv_python(root: Path) -> Path | None:
 
 def run(cmd: list[str], cwd: Path, env: dict | None = None) -> None:
     log("$ " + " ".join(cmd))
-    subprocess.run(cmd, cwd=str(cwd), check=True, env=env)
+    try:
+        subprocess.run(cmd, cwd=str(cwd), check=True, env=env)
+    except subprocess.CalledProcessError as e:
+        raise SystemExit(f"command failed (exit {e.returncode}): {' '.join(cmd)}")
+
+
+PYNECORE_REQ = re.compile(r"^\s*pynesys[-_.]pynecore\s*(\[([^\]]*)\])?", re.I)
+
+
+def pyproject_pynecore(pyproject: Path) -> tuple[bool, bool, bool]:
+    """(has a [project] table, depends on pynesys-pynecore, with the cli extra) for an existing file."""
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        raise SystemExit(f"{pyproject} cannot be read as TOML: {e}")
+    project = data.get("project")
+    if not isinstance(project, dict):
+        return False, False, False
+    for req in project.get("dependencies", []) or []:
+        m = PYNECORE_REQ.match(str(req))
+        if m:
+            extras = {e.strip().lower() for e in (m.group(2) or "").split(",") if e.strip()}
+            return True, True, "cli" in extras
+    return True, False, False
 
 
 def setup_env(root: Path, name: str, spec: str, ccxt: bool, python_version: str | None, use: str, created: list[str]) -> Path:
     pyproject = root / "pyproject.toml"
-    if not pyproject.exists():
-        pyproject.write_text(pyproject_text(name, spec, ccxt), encoding="utf-8")
-        created.append("pyproject.toml")
-    else:
-        log("pyproject.toml exists, left unchanged")
-
     uv = shutil.which("uv")
     if use == "uv" and not uv:
         raise SystemExit("uv requested but not found on PATH (install: https://docs.astral.sh/uv/)")
-    if uv and use != "pip":
-        cmd = [uv, "sync"]
+    use_uv = bool(uv) and use != "pip"
+    add_dependency = False
+    if not pyproject.exists():
+        pyproject.write_text(pyproject_text(name, spec, ccxt), encoding="utf-8")
+        created.append("pyproject.toml")
+    elif use_uv:
+        has_project, has_dep, has_cli = pyproject_pynecore(pyproject)
+        if not has_project:
+            raise SystemExit("pyproject.toml exists but has no [project] table (another tool manages it), so uv cannot "
+                             "add PyneCore to it. Add pynesys-pynecore[cli,ccxt] with that tool, or re-run with "
+                             "--env pip to install into .venv without touching pyproject.toml")
+        add_dependency = not (has_dep and has_cli)
+        log("pyproject.toml exists: " + ("adding pynesys-pynecore with uv add" if add_dependency
+                                         else "it already depends on pynesys-pynecore[cli], left unchanged"))
+    else:
+        log("pyproject.toml exists, left unchanged (pip mode installs into .venv only)")
+
+    if use_uv:
+        extras = "cli,ccxt" if ccxt else "cli"
+        cmd = [uv, "add", f"pynesys-pynecore[{extras}]{spec}"] if add_dependency else [uv, "sync"]
         if python_version:
             cmd += ["--python", python_version]
         run(cmd, root)
@@ -249,6 +287,12 @@ def main() -> int:
     root.mkdir(parents=True, exist_ok=True)
     log(f"project folder: {root}")
 
+    pyproject = root / "pyproject.toml"
+    if (not args.no_env and args.env != "pip" and pyproject.is_file() and shutil.which("uv")
+            and not pyproject_pynecore(pyproject)[0]):
+        raise SystemExit("pyproject.toml exists but has no [project] table (another tool manages it), so uv cannot "
+                         "add PyneCore to it; nothing was created. Add pynesys-pynecore[cli,ccxt] with that tool, "
+                         "or re-run with --env pip to install into .venv without touching pyproject.toml")
     created = create_layout(root)
     if not args.no_pyright and not (root / "pyrightconfig.json").exists():
         (root / "pyrightconfig.json").write_text(PYRIGHTCONFIG, encoding="utf-8")
@@ -287,7 +331,12 @@ def main() -> int:
         print(f"  {pyne} --workdir {root} data download ccxt:BYBIT:BTC/USDT:USDT@1D")
         print("  add scripts with new_script.py, backtest with run_backtest.py, report with summarize_backtest.py")
     else:
-        print("Next   : create an environment (uv sync, or python -m venv .venv && pip install \"pynesys-pynecore[cli,ccxt]\")")
+        pyproject = root / "pyproject.toml"
+        if pyproject.is_file() and pyproject_pynecore(pyproject)[1]:
+            print("Next   : create the environment with `uv sync` (pyproject.toml already depends on pynesys-pynecore)")
+        else:
+            print("Next   : create an environment: re-run without --no-env, or "
+                  "python -m venv .venv && .venv/bin/pip install \"pynesys-pynecore[cli,ccxt]\"")
     return 0
 
 

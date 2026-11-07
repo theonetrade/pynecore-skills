@@ -45,6 +45,9 @@ METRIC_KEYS = (
 )
 
 
+STATS_MARKERS = ("Net profit", "Total closed trades", "Gross profit", "Max equity drawdown")
+
+
 def resolve_paths(arg: str) -> tuple[Path | None, Path | None]:
     p = Path(arg)
     if p.suffix == ".csv":
@@ -87,6 +90,9 @@ def read_stats(path: Path) -> tuple[dict[str, dict[str, float | None]], str]:
                 "long": to_num(cells[3]), "long_pct": to_num(cells[4]),
                 "short": to_num(cells[5]), "short_pct": to_num(cells[6]),
             }
+    if not any(marker in stats for marker in STATS_MARKERS):
+        raise SystemExit(f"{path}: {'empty file' if not header else 'not a PyneCore statistics CSV'} (expected rows such as "
+                         f"'Net profit' and 'Total closed trades', as `pyne run` writes to output/<script>_strat.csv)")
     currency = header[1].replace("All", "").strip() if len(header) > 1 else ""
     return stats, currency
 
@@ -94,9 +100,14 @@ def read_stats(path: Path) -> tuple[dict[str, dict[str, float | None]], str]:
 def read_trades(path: Path) -> tuple[list[dict], str]:
     """One record per trade number (an entry row and an exit row; a partial exit gets its own number)."""
     with path.open(newline="", encoding="utf-8") as fh:
-        rows = list(csv.DictReader(fh))
+        reader = csv.DictReader(fh)
+        rows = list(reader)
+        fields = reader.fieldnames or []
+    if not fields or not {"Trade #", "Type"} <= set(fields) or not any(f.startswith("Price") for f in fields):
+        raise SystemExit(f"{path}: {'empty file' if not fields else 'not a PyneCore trade CSV'} (expected the columns "
+                         f"'Trade #', 'Type', 'Price ...', as `pyne run` writes to output/<script>_trade.csv)")
     if not rows:
-        return [], ""
+        return [], ""                                # a strategy without trades: header only
     columns = list(rows[0].keys())
     price_key = next((k for k in columns if k.startswith("Price")), "Price")
     profit_key = next((k for k in columns if k.startswith("Profit") and "%" not in k), "Profit")

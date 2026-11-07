@@ -24,6 +24,8 @@ Preflight, all of which must pass before anything starts:
   sandbox / demo / testnet switch set to true is reported, a plugin class that declares
   `simulated_venue = True` (the skill's simbroker template) is reported as SIMULATED, otherwise
   the run is marked REAL MONEY;
+- every --security value is KEY=SYMBOL with a broker-plugin symbol, not a data file (pyne refuses
+  file paths in a live run, but only after it started);
 - scripts/<script>.toml is shown: it is the only source of inputs and settings for a live run.
   There are no --input/--setting overrides here on purpose: what trades is what is on disk.
 Without --yes the plan and the exact pyne command are printed and nothing starts: exit code 0
@@ -271,10 +273,12 @@ def main() -> int:
                         help="pyne's graceful-shutdown budget on stop (float seconds; 0 = wait forever). Default: 120")
     parser.add_argument("--timeframe", "-tf", metavar="TF",
                         help="chart timeframe larger than the data's (pyne run -tf), e.g. 60 on 1-minute data. Default: none")
-    parser.add_argument("--security", action="append", metavar="KEY=NAME",
-                        help="request.security() data mapping passed to pyne run -sec: KEY = TIMEFRAME | SYMBOL:TIMEFRAME,\n"
-                             "NAME = a data name in data/. Repeatable. Contexts without a mapping are resolved live through\n"
-                             "the plugin's symbol map (config/plugins/<plugin>.toml, config/symbol_map.toml)")
+    parser.add_argument("--security", action="append", metavar="KEY=SYMBOL",
+                        help="request.security() mapping passed to pyne run -sec: KEY = TIMEFRAME | SYMBOL:TIMEFRAME,\n"
+                             "SYMBOL = a symbol of the broker plugin (EURUSD, BINANCE:ETH/USDT): a --broker run is live, and\n"
+                             "pyne refuses data files there (values starting with / ./ ../ ~/ or ending in .ohlcv).\n"
+                             "Repeatable. Contexts without a mapping are resolved through the plugin's symbol map\n"
+                             "(config/plugins/<plugin>.toml, config/symbol_map.toml)")
     parser.add_argument("--plot", type=Path, metavar="PATH",
                         help="write the plot CSV to PATH (grows without bound in a live run). Default: --no-plot is passed")
     parser.add_argument("--strat", type=Path, metavar="PATH",
@@ -343,6 +347,14 @@ def main() -> int:
         problems.append(f"--from {args.from_!r}: use -N bars, N days or YYYY-MM-DD")
     if args.run_label and not re.fullmatch(r"[A-Za-z0-9_-]+", args.run_label):
         problems.append("--run-label: letters, digits, - and _ only")
+    for sec in args.security or []:
+        key, sep, value = sec.partition("=")
+        if not sep or not key.strip() or not value.strip():
+            problems.append(f"--security {sec!r}: expected TIMEFRAME=SYMBOL or SYMBOL:TIMEFRAME=SYMBOL")
+        elif value.startswith(("/", "./", "../", "~/")) or value.endswith(".ohlcv"):
+            # the same test pyne run applies in live mode, where it aborts after the start
+            problems.append(f"--security {sec!r}: a --broker run is live, where the value is a symbol of the broker "
+                            f"plugin (e.g. EURUSD or BINANCE:ETH/USDT), not a data file; pyne refuses file paths here")
 
     cmd = [str(pyne), "--workdir", str(workdir), "run", str(script), args.data, "--broker", "-f", args.from_.strip(),
            "--shutdown-timeout", str(args.shutdown_timeout)]

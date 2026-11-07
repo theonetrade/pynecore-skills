@@ -20,8 +20,10 @@ Options:
                       written in another language through a cloud compiler, not Python work)
     --dest DIR        target folder (default: <skill>/docs)
 
-The script wipes the target folder first so removed pages do not linger, copies every file,
-and writes MANIFEST.json with the version, source reference, date and a SHA-256 per file.
+The new snapshot is built in a temporary folder and replaces the target only when complete, so
+removed pages do not linger and a failed download leaves the old snapshot intact. A target that
+is not empty and holds no MANIFEST.json is refused, as is a --from folder equal to or nested with
+the target. MANIFEST.json records the version, source reference, date and a SHA-256 per file.
 """
 from __future__ import annotations
 
@@ -33,6 +35,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -88,9 +91,27 @@ def detect_version(source: Path) -> tuple[str | None, str | None, str | None]:
     return None, None, None
 
 
-def copy_tree(source: Path, dest: Path, exclude: tuple[str, ...]) -> dict[str, str]:
+def check_dest(dest: Path, source: Path | None) -> None:
+    """Refuse a target that is not ours to replace, before anything is downloaded or deleted."""
+    if dest.exists() and not dest.is_dir():
+        raise SystemExit(f"--dest {dest}: exists and is not a folder")
+    if dest.is_dir() and any(dest.iterdir()) and not (dest / MANIFEST_NAME).is_file():
+        raise SystemExit(f"--dest {dest}: the folder is not empty and holds no {MANIFEST_NAME}, so it is not a "
+                         f"documentation snapshot; refusing to replace it (choose a new or empty folder)")
+    if source is not None and (source == dest or dest in source.parents or source in dest.parents):
+        raise SystemExit(f"--from {source} and --dest {dest} are the same folder or one contains the other; "
+                         f"copy from another folder, or write the snapshot elsewhere with --dest")
+
+
+def replace_dest(stage: Path, dest: Path) -> None:
+    """Swap the finished snapshot in: the old one is removed only after the new one is complete."""
     if dest.exists():
         shutil.rmtree(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(stage, dest)
+
+
+def copy_tree(source: Path, dest: Path, exclude: tuple[str, ...]) -> dict[str, str]:
     dest.mkdir(parents=True)
     files: dict[str, str] = {}
     for path in sorted(source.rglob("*")):
@@ -176,8 +197,9 @@ def main() -> int:
                         help="also copy the pages excluded by default (getting-started/converting-from-pine.md,\n"
                              "cli/compile.md, logo.svg): they cover a cloud compiler for scripts in another language")
     parser.add_argument("--dest", type=Path, default=Path(__file__).resolve().parent.parent / "docs", metavar="DIR",
-                        help="target folder; it is deleted and recreated, so point it elsewhere to preview a snapshot.\n"
-                             "Default: <skill>/docs")
+                        help="target folder. It is replaced only when it is new, empty or an earlier snapshot (holds\n"
+                             "MANIFEST.json), and only after the new snapshot is complete; it must not be the --from folder\n"
+                             "or inside it. Point it elsewhere to preview a snapshot. Default: <skill>/docs")
     args = parser.parse_args()
 
     if args.check or not (args.tag or args.from_dir):
@@ -188,13 +210,23 @@ def main() -> int:
         return check(args.dest)
 
     exclude = () if args.keep_all else DEFAULT_EXCLUDE
+    dest = args.dest.expanduser().resolve()
+    check_dest(dest, Path(args.from_dir).expanduser().resolve() if args.from_dir else None)
     with tempfile.TemporaryDirectory(prefix="pynecore-docs-") as tmp:
         tmp_path = Path(tmp)
+        release_dir = tmp_path / "release"
+        release_dir.mkdir()
+        stage = tmp_path / "snapshot"
         license_file = Path(args.license_file) if args.license_file else None
         notice_file = Path(args.notice_file) if args.notice_file else None
         ref = commit = None
         if args.tag:
-            source, dl_license, dl_notice = download_release(args.tag, tmp_path)
+            try:
+                source, dl_license, dl_notice = download_release(args.tag, release_dir)
+            except (urllib.error.URLError, TimeoutError, OSError, tarfile.TarError) as e:
+                raise SystemExit(f"download of the {args.tag} release failed: {e}\n"
+                                 f"the snapshot in {dest} is unchanged. Check the tag (git ls-remote --tags "
+                                 f"https://github.com/PyneSys/pynecore) or copy from a local folder with --from")
             license_file = license_file or dl_license
             notice_file = notice_file or dl_notice
             version = args.version or args.tag.lstrip("v")
@@ -218,18 +250,21 @@ def main() -> int:
                             break
         commit = args.commit or commit
 
-        files = copy_tree(source, args.dest, exclude)
+        files = copy_tree(source, stage, exclude)
+        pages = sum(1 for f in files if f.endswith(".md"))
+        if pages == 0:
+            raise SystemExit(f"no Markdown pages found in {source}; the snapshot in {dest} is unchanged")
         for name, path in (("LICENSE", license_file), ("NOTICE", notice_file)):
             if path and path.is_file():
-                shutil.copy2(path, args.dest / name)
-                files[name] = sha256(args.dest / name)
+                shutil.copy2(path, stage / name)
+                files[name] = sha256(stage / name)
             else:
                 print(f"warning: no {name} file found; add one, the documentation is Apache-2.0 licensed", file=sys.stderr)
         excluded = [e for e in exclude if (source / e).exists()]
-        write_manifest(args.dest, version, ref, commit, excluded, files)
+        write_manifest(stage, version, ref, commit, excluded, files)
+        replace_dest(stage, dest)
 
-    pages = sum(1 for f in files if f.endswith(".md"))
-    print(f"snapshot written to {args.dest}: {pages} pages, PyneCore {version}" + (f" ({ref})" if ref else ""))
+    print(f"snapshot written to {dest}: {pages} pages, PyneCore {version}" + (f" ({ref})" if ref else ""))
     if excluded:
         print("excluded: " + ", ".join(excluded))
     return 0

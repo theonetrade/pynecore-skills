@@ -27,6 +27,7 @@ parent, else a `workdir/` child); pass --workdir to override. Missing `scripts/`
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shlex
 import shutil
@@ -61,6 +62,9 @@ def strip_standalone(text: str) -> str:
 
 
 def find_workdir(start: Path) -> Path | None:
+    env = os.environ.get("PYNE_WORK_DIR")         # the pyne CLI rule: --workdir, then the variable, then search
+    if env:
+        return Path(env).expanduser().resolve()
     current = start.resolve()
     for _ in range(10):
         if (current / ".pyne").is_file():
@@ -120,7 +124,8 @@ def main() -> int:
                              "Example: --title \"Donchian Breakout\"")
     parser.add_argument("--workdir", type=Path, metavar="DIR",
                         help="target workdir: the folder that holds .pyne and scripts/.\n"
-                             "Default: discovered from the current directory upwards (.pyne marker, else a workdir/ child).")
+                             "Default: $PYNE_WORK_DIR when set (the pyne CLI rule), else discovered from the current\n"
+                             "directory upwards (.pyne marker, else a workdir/ child).")
     parser.add_argument("--publisher", default="local", metavar="NAME",
                         help="--kind library only: namespace folder under scripts/lib/, a snake_case identifier.\n"
                              "The module is imported as lib.NAME.<name>.vN. Default: local")

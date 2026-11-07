@@ -29,9 +29,13 @@ Templates (see references/):
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
 import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -48,6 +52,79 @@ TEMPLATES = {
                   "cls": "SimBroker", "cfg": "SimBrokerConfig", "suffix": "Broker"},
 }
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+# registered by pynesys-pynecore itself: a second package with the same key makes `pyne` report the name as
+# ambiguous and every provider string using it stops working
+BUILTIN_PLUGINS = {"ccxt", "replay"}
+# built-in `pyne` command groups: a plugin CLI group with one of these names is skipped
+BUILTIN_COMMANDS = {"run", "compile", "benchmark", "data", "debug", "plugin", "broker"}
+
+
+def find_pyne(explicit: Path | None) -> Path | None:
+    """The project's pyne: --pyne, a .venv / venv here or up to three folders above, this interpreter's
+    environment (not resolved: a venv's python is a symlink), then PATH."""
+    if explicit:
+        return explicit if explicit.is_file() else None
+    folder = Path.cwd().resolve()
+    for _ in range(4):
+        for venv in (".venv", "venv"):
+            for rel in ("bin/pyne", "Scripts/pyne.exe"):
+                if (folder / venv / rel).is_file():
+                    return folder / venv / rel
+        folder = folder.parent
+    for base in (Path(sys.executable).parent, Path(sys.prefix) / "bin", Path(sys.prefix) / "Scripts"):
+        for name in ("pyne", "pyne.exe"):
+            if (base / name).is_file():
+                return base / name
+    found = shutil.which("pyne")
+    return Path(found) if found else None
+
+
+def installed_plugins(pyne: Path | None) -> tuple[dict[str, str], str | None]:
+    """Installed plugin name -> distribution, and where the list came from (None: nothing could be asked)."""
+    names: dict[str, str] = {}
+    source = None
+    if pyne is not None:
+        try:
+            # pyne outside a workdir asks whether to create one (and aborts without an answer): give it a throwaway
+            # workdir, and no stdin
+            with tempfile.TemporaryDirectory(prefix="new-plugin-") as tmp:
+                (Path(tmp) / ".pyne").write_text('workdir_version = "1.0"\n', encoding="utf-8")
+                out = subprocess.run([str(pyne), "--workdir", tmp, "plugin", "list", "--json"], cwd=tmp,
+                                     capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL,
+                                     env={**os.environ, "PYNE_NO_LOGO": "1", "NO_COLOR": "1"}).stdout
+            data = json.loads(out[out.index("{"):])
+            names.update({p["name"]: p.get("package") or "?" for p in data.get("plugins", [])})
+            source = f"{pyne} plugin list --json"
+        except (OSError, ValueError, subprocess.SubprocessError):
+            pass
+    try:                                         # this interpreter's environment, when it is the project's
+        from importlib.metadata import entry_points
+        for ep in entry_points(group="pyne.plugin"):
+            names.setdefault(ep.name, ep.dist.name if ep.dist else "?")
+            source = source or f"entry points of {sys.executable}"
+    except Exception:  # noqa: BLE001
+        pass
+    return names, source
+
+
+def check_name(key: str, dist: str, pyne: Path | None) -> None:
+    """Refuse a plugin name that collides with PyneCore or with a plugin installed from another package."""
+    if key in BUILTIN_PLUGINS:
+        raise SystemExit(f"--name {key}: this plugin ships with PyneCore (pynesys-pynecore); a second package "
+                         f"registering it makes `pyne` report the name as ambiguous and breaks every `{key}:` "
+                         f"provider string. Choose another name, e.g. my{key}")
+    if key in BUILTIN_COMMANDS:
+        raise SystemExit(f"--name {key}: `pyne {key}` is a built-in command; a plugin with this name loses its CLI "
+                         f"group and its provider strings read like the command. Choose another name")
+    installed, source = installed_plugins(pyne)
+    owner = installed.get(key)
+    if owner is not None and owner.replace("_", "-").lower() != dist.lower():
+        raise SystemExit(f"--name {key}: a plugin with this name is already installed from {owner} ({source}); a "
+                         f"second package with the same key makes both unloadable. Choose another name, or "
+                         f"uninstall {owner} first")
+    if source is None:
+        print("note: could not list the installed plugins (no pyne found); pass --pyne PATH to check the name "
+              "against them", file=sys.stderr)
 TEXT_SUFFIXES = {".py", ".toml", ".md", ".txt", ".cfg", ".ini"}
 
 
@@ -95,7 +172,14 @@ def main() -> int:
     parser.add_argument("--class", dest="cls", metavar="CLASS",
                         help="main class name. Default: CamelCase(NAME) + Provider | Plugin as in the template")
     parser.add_argument("--force", action="store_true", help="replace DEST when it exists")
+    parser.add_argument("--pyne", type=Path, metavar="PATH",
+                        help="the project's pyne executable, asked for the installed plugins (`pyne plugin list --json`)\n"
+                             "so the new name does not collide with one. Default: .venv/bin/pyne here or above,\n"
+                             "this interpreter's environment, then PATH. Built-in names (ccxt, replay) and pyne's\n"
+                             "own commands (run, data, plugin, broker, ...) are always refused")
     args = parser.parse_args()
+    if args.name is not None and not NAME_RE.match(args.name):
+        raise SystemExit("--name: lowercase letters, digits and _ only, starting with a letter")
 
     if args.template in TEMPLATES:
         src = TEMPLATES_DIR / TEMPLATES[args.template]["dist"]
@@ -108,6 +192,10 @@ def main() -> int:
     if not src.is_dir():
         raise SystemExit(f"template folder missing: {src}")
 
+    if old is not None:
+        key = args.name or old["key"]
+        check_name(key, f"pynecore-{key.replace('_', '-')}" if args.name else old["dist"], find_pyne(args.pyne))
+
     dest: Path = args.dest
     if dest.exists():
         if not args.force:
@@ -116,8 +204,6 @@ def main() -> int:
     shutil.copytree(src, dest, ignore=shutil.ignore_patterns("__pycache__", "*.egg-info", ".pytest_cache"))
 
     if args.name and old is not None:
-        if not NAME_RE.match(args.name):
-            raise SystemExit("--name: lowercase letters, digits and _ only, starting with a letter")
         new = {"dist": f"pynecore-{args.name.replace('_', '-')}", "pkg": f"pynecore_{args.name}", "key": args.name,
                "cls": args.cls or camel(args.name) + old["suffix"], "cfg": camel(args.name) + "Config"}
         # package folder

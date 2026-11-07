@@ -54,7 +54,10 @@ python3 <skill>/scripts/sync_docs.py --from $SP/pynecore/docs --version 6.12.1 -
 
 `git ls-remote --tags https://github.com/PyneSys/pynecore` prints the commit of each tag.
 
-The sync wipes `docs/`, copies the pages, LICENSE and NOTICE, and rewrites `MANIFEST.json`.
+The sync builds the new snapshot (pages, LICENSE, NOTICE, `MANIFEST.json`) in a temporary folder
+and only then replaces `docs/`, so removed pages do not linger and a failed download leaves the
+old snapshot intact. It refuses a `--dest` that is not empty and holds no `MANIFEST.json`, and a
+`--from` that is the destination or nested with it.
 Two pages about converting scripts written in another language through a cloud compiler are
 left out by default (`--keep-all` includes them); they are not relevant to Python work.
 

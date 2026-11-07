@@ -77,14 +77,19 @@ def parse_sweep(spec: str) -> tuple[str, list]:
             raise SystemExit(f"bad range {spec!r}")
         start, stop = parse_value(parts[0]), parse_value(parts[1])
         step = parse_value(parts[2]) if len(parts) == 3 else 1
-        values = []
-        v = start
+        if not all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in (start, stop, step)):
+            raise SystemExit(f"bad range {spec!r}: start, stop and step must be numbers (name=start:stop[:step]); "
+                             f"for other values list them: name=a,b,c")
+        if step == 0:
+            raise SystemExit(f"bad range {spec!r}: step must not be 0")
+        if (stop - start) / step < 0:
+            raise SystemExit(f"bad range {spec!r}: the step goes away from stop (use a negative step to count down)")
+        # count the points instead of accumulating the step: 0.1 + 0.1 + 0.1 > 0.3 in floating point
+        count = int(math.floor((stop - start) / step + 1e-9)) + 1
+        if count > 10_000:
+            raise SystemExit(f"range too large: {spec} ({count} points)")
         is_int = all(isinstance(x, int) for x in (start, stop, step))
-        while (step > 0 and v <= stop) or (step < 0 and v >= stop):
-            values.append(v if is_int else round(v, 10))
-            v += step
-            if len(values) > 10_000:
-                raise SystemExit(f"range too large: {spec}")
+        values = [start + i * step if is_int else round(start + i * step, 10) for i in range(count)]
         return name, values
     return name, [parse_value(p) for p in rhs.split(",") if p.strip()]
 
@@ -110,6 +115,7 @@ def load_data(data: Path, *, provider: str | None, symbol: str | None, tz: str, 
     if not data.exists():
         raise SystemExit(f"data file not found: {data}")
     ohlcv = data
+    toml_existed = data.with_suffix(".toml").is_file()
     if data.suffix.lower() != ".ohlcv":
         DataConverter().convert_to_ohlcv(data, force=force, provider=provider, symbol=symbol, timezone=tz)
         ohlcv = data.with_suffix(".ohlcv")
@@ -117,6 +123,15 @@ def load_data(data: Path, *, provider: str | None, symbol: str | None, tz: str, 
     if not toml.is_file():
         raise SystemExit(f"symbol info not found: {toml}")
     syminfo = SymInfo.load_toml(toml)
+    if (symbol or provider) and (toml_existed or data.suffix.lower() == ".ohlcv"):
+        # PyneCore never overwrites an existing symbol .toml (it may hold hand-edited metadata), also not
+        # with --force-convert: --symbol / --provider only shape a .toml that is generated
+        differs = [f"{flag} {want!r} vs {have!r}" for flag, want, have in
+                   (("--symbol", symbol, syminfo.ticker), ("--provider", provider, syminfo.prefix))
+                   if want and str(want).upper() != str(have).upper()]
+        if differs:
+            print(f"warning: {toml} already exists and is used as it is ({'; '.join(differs)}): --symbol / --provider "
+                  f"only apply when the .toml is generated. Rename or delete it to regenerate", file=sys.stderr)
     with OHLCVReader(ohlcv) as reader:
         start = reader.start_timestamp if from_ms is None else max(reader.start_timestamp, from_ms)
         end = reader.end_timestamp if to_ms is None else min(reader.end_timestamp, to_ms)
@@ -378,6 +393,10 @@ def main() -> int:
     # writes to stdout), alert() and print() output go to stderr while the script runs.
     quiet = (lambda: contextlib.redirect_stdout(sys.stderr)) if args.json else contextlib.nullcontext
 
+    for out in (args.plot, args.strat, args.trade):
+        if out is not None:
+            Path(out).expanduser().parent.mkdir(parents=True, exist_ok=True)
+
     if not args.sweep:
         with quiet():
             res = run_once(script, bars, syminfo, inputs=inputs, settings=settings,
@@ -397,6 +416,9 @@ def main() -> int:
         with quiet():
             res = run_once(script, bars, syminfo, inputs={**inputs, **point}, settings=settings, security=security)
         res["point"] = point
+        if not res["is_strategy"]:
+            raise SystemExit(f"--sweep ranks trades, and {script.name} is an indicator (no trades): run it once per value "
+                             f"with --input {', '.join(names)}=... instead, or sweep a strategy")
         rows.append(res)
     ranked = [r for r in rows if r.get("trades", 0) >= args.min_trades and metric_value(r, args.metric) is not None]
     _, higher_is_better = METRICS[args.metric]
@@ -414,7 +436,11 @@ def main() -> int:
               f"{fmt(r['win_rate'], 1):>6}  {fmt(r['max_drawdown_pct']):>8}  {fmt(r['avg_trade']):>10}")
     skipped = len(rows) - len(ranked)
     if skipped:
-        print(f"({skipped} point(s) hidden: fewer than {args.min_trades} trades or no {args.metric})")
+        reason = f"fewer than {args.min_trades} closed trades or no {args.metric}" if args.min_trades > 0 else f"no {args.metric} (no closed trade)"
+        print(f"({skipped} point(s) hidden: {reason})")
+    if not ranked:
+        print("no sweep point produced a value to rank", file=sys.stderr)
+        return 1
     print("Prefer a plateau of good neighbours over the single best cell; validate out of sample.")
     return 0
 
