@@ -181,6 +181,35 @@ open at the end is missing. Set `startup_candle_count` to at least the warm-up t
 needs, `minimal_roi = {"0": 100}` when the Pyne script owns the exits, and install
 `pynesys-pynecore>=6.12` into FreqTrade's environment.
 
+Spot versus futures: FreqTrade refuses to load a strategy with `can_short = True` in a spot
+config (`ImportError: Short strategies cannot run in spot markets`), and spot is its default.
+The signals template therefore ships two classes: `PyneStrategySignals` (`can_short = False`,
+long signals only, any config) and `PyneStrategySignalsShort` (`can_short = True`, also
+`enter_short` / `exit_short`), which needs `"trading_mode": "futures"`,
+`"margin_mode": "isolated"` and futures pairs (`"BTC/USDT:USDT"`).
+
+`startup_candle_count` for recursive indicators (RSI, EMA, ATR, anything Wilder-smoothed) is more
+than the lookback: `freqtrade recursive-analysis --strategy X --startup-candle 100 200 400` shows
+how far values still move. RSI(14) on 1h data: 0.006 % (OKX) and 0.015 % (Gate) off with 100
+candles, 0.000 % with 200 on both.
+
+Verified with FreqTrade 2026.10 (stable) and PyneCore 6.12.1 on OKX data: the bridge's RSI and
+Bollinger values equal TA-Lib's (max difference 4e-14 and 4e-8); in futures,
+`PyneStrategySignalsShort` reproduced every closed trade of a long/short Pyne script (side, entry
+and exit time, prices: 105/105 and 140/140 per pair; the one extra FreqTrade trade per pair is
+its `force_exit` of the position still open at the end), and `PyneStrategySignals` did the same
+for the long side; `lookahead-analysis` reported no bias for all three classes;
+`trade --dry-run` computed the `pyne_*` columns on live candles. The bridge costs about 20 ms per
+pair for 1000 candles. With `max_open_trades` below the number of pairs FreqTrade skips entries
+the Pyne script (one position per symbol) takes, so compare per pair.
+
+Installing with uv from inside a FreqTrade checkout: its `pyproject.toml` sets
+`[tool.uv] exclude-newer = "1 week"`, which hides a PyneCore release younger than a week
+(`there is no version of pynesys-pynecore==X`). Add
+`--exclude-newer-package "pynesys-pynecore=false"` (the way that file already exempts ccxt), run uv
+from another folder, or use pip. A date there means the start of that day, so
+`pynesys-pynecore=<today>` still hides a release uploaded today.
+
 ## Notifications and side effects
 
 PyneCore has no webhook. `alert("text")` prints to the console only. A script is Python, so it

@@ -15,9 +15,17 @@ Install into user_data/strategies/ together with pynecore_bridge.py and a script
 
     pip install "pynesys-pynecore>=6.12"
     freqtrade backtesting --strategy PyneIndicatorStrategy
+    freqtrade lookahead-analysis --strategy PyneIndicatorStrategy    # expect "no bias detected"
+    freqtrade recursive-analysis --strategy PyneIndicatorStrategy --startup-candle 100 200 400
 
 populate_indicators() receives the full DataFrame on every new candle; the bridge re-runs the
-scripts over all of it, which is both correct (the scripts are stateful) and cheap.
+scripts over all of it, which is both correct (the scripts are stateful) and cheap (about 20 ms
+per pair for 1000 candles of RSI + Bollinger; FreqTrade 2026.10, PyneCore 6.12.1).
+
+Installing with uv from inside a FreqTrade checkout: its pyproject.toml sets
+`[tool.uv] exclude-newer = "1 week"`, which hides a PyneCore release younger than a week; add
+`--exclude-newer-package "pynesys-pynecore=false"`, run uv from another folder, or use pip (a date
+instead of false means the start of that day and still hides a release uploaded that day).
 """
 from pathlib import Path
 
@@ -37,7 +45,10 @@ class PyneIndicatorStrategy(IStrategy):
     INTERFACE_VERSION = 3
 
     timeframe = "1h"
-    startup_candle_count = 100          # at least the longest lookback of the scripts
+    # Not just the longest lookback: recursive indicators (RSI, EMA, ATR) keep converging after it.
+    # With 100 candles RSI(14) still differed by 0.006-0.015 % from a 400-candle start (OKX, Gate 1h);
+    # with 200, 0.000 %.
+    startup_candle_count = 200
     minimal_roi = {"0": 0.10, "60": 0.05, "120": 0.02}
     stoploss = -0.05
     can_short = False
