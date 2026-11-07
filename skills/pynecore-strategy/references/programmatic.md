@@ -202,7 +202,8 @@ provider = CCXTProvider(symbol="binance:BTC/USDT", timeframe="60", ohlcv_dir=Pat
 result = download_to_file(provider, time_from="continue", time_to=last_closed_bar_open,
                           syminfo=provider.get_symbol_info(), on_conflict="abort",
                           provider_string="ccxt:BINANCE:BTC/USDT@60")
-bars = list(OHLCVReader(result.ohlcv_path).read_from(...))   # then ScriptRunner as above
+with OHLCVReader(result.ohlcv_path) as reader:                # open it: without `with` read_from yields nothing
+    bars = list(reader.read_from(reader.start_timestamp, reader.end_timestamp))   # then ScriptRunner as above
 ```
 
 `time_from="continue"` resumes at the last stored bar; stop one bar before "now", because a
@@ -314,7 +315,9 @@ Each call executes the module from the top as a fresh import (and writes the `.t
 
 - Materialize `list(reader.read_from(...))` once when several scripts or sweep points use the
   same data.
-- A simple script does ~1000 bars in a few milliseconds; 5000 bars in tens of milliseconds.
+- Measured with `ScriptRunner` on hourly bars (depends on the machine): the demo indicator (two
+  EMAs) runs 1000 bars in 5-7 ms and 5000 in 20-30 ms; `templates/strategy_template.py` (orders,
+  stops, logging) 20-30 ms and 100-160 ms.
 - Frameworks that call you on every new candle with the full history (FreqTrade and the like)
   should re-run the whole script over the full frame rather than only the new bars, because the
   script's state (averages, `Persistent` variables, the position) depends on every earlier bar.

@@ -255,11 +255,15 @@ Rules (verified on PyneCore 6.12):
   bar differed). Download up to the previous bar close (`--to` one bar back) or use
   `download_candles.py`, whose default `--to closed` does exactly that. `--truncate` is the
   only repair.
-- **One file per symbol and timeframe.** `request.security()` contexts need their own files
-  (`--security "1D=ccxt_BINANCE_BTC_USDT_1D"`, or the symbol map); a higher timeframe can be
-  built locally with `pyne data aggregate <name> -tf 240` instead of a second download.
+- **One file per symbol and timeframe.** A `request.security()` context of the chart symbol in
+  minute notation (`"240"`, `"1440"`) is built from the chart bars; `"1D"`/`"W"`/`"M"` need
+  `--security`, and the chart's own file is accepted for them (`--security "1D=<chart file>"`);
+  other symbols need their own files (`--security "SP:SPX=..."`, or the symbol map). Details:
+  [multi-timeframe.md](multi-timeframe.md#supplying-the-data). A separate higher-timeframe file
+  can be built locally with `pyne data aggregate <name> -tf 240` instead of a second download.
 - **Check the cache without network**: `download_candles.py SYMBOL -tf TF --status`, or
-  `OHLCVReader(path)` (`size`, `start_datetime`, `end_datetime`, `period`, `dense`);
+  `with OHLCVReader(path) as r:` (`r.size`, `start_datetime`, `end_datetime`, `period`, `dense`;
+  an unopened reader reports `size` 0 and fails on the dates);
   `record_count(path)` answers from the header and returns 0 for a missing or broken file.
 - **Git**: ignore `data/*.ohlcv` (binary, regenerable), keep `data/*.toml`: its `[download]`
   section lets anyone recreate the file with `pyne data download data/<name>.toml`.

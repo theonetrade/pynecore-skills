@@ -9,7 +9,7 @@ journal, restart adoption, quarantine on external intervention) without an excha
 ```bash
 pip install -e .                                      # or: uv pip install -e .
 pyne plugin info simbroker                            # [provider, broker, cli]
-pyne run my_strategy simbroker:BINANCE:BTC/USDT@1 --broker -f -500 --no-plot
+pyne run my_strategy simbroker:BINANCE:BTC/USDT@1 --broker -f -500 --no-plot   # feed ccxt: set default_type = "spot" in ccxt.toml for a spot pair
 pyne simbroker status                                 # position, cash, working orders
 pyne simbroker cancel-order sim-3                     # act "outside the bot": the run enters quarantine
 pyne simbroker reset --yes

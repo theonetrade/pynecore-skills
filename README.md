@@ -129,7 +129,9 @@ python3 $S/sync_docs.py --tag v6.12.1 --keep-all     # also copy the pages exclu
 python3 $S/sync_docs.py --tag v6.12.1 --dest /tmp/docs-preview   # write somewhere else first
 ```
 
-What it does: deletes the target folder, copies the pages plus `LICENSE` and `NOTICE`
+What it does: builds the new snapshot in a temporary folder and swaps it in only when complete
+(removed pages do not linger, a failed download leaves the old snapshot intact; a non-empty
+target without `MANIFEST.json` is refused), copies the pages plus `LICENSE` and `NOTICE`
 (taken from the release archive, or found next to a local source folder; `--license` /
 `--notice` override), and writes `MANIFEST.json` with `pynecoreVersion`, `sourceRef`,
 `sourceCommit`, `snapshotDate`, the list of excluded pages and a SHA-256 per file. Two pages
@@ -187,7 +189,9 @@ The 6.12.1 wheel also ships the documentation as `pynecore/docs/`, so `sync_docs
 installed package refreshes the snapshot without the GitHub download (see the docs skill). When a newer release changes an API or a
 command: refresh the snapshot (`python3 skills/pynecore-docs/scripts/sync_docs.py --tag v<version>`),
 update the affected reference files and templates, run the templates against the demo data
-(`pyne --recreate-demo plugin list`, then `pyne run strategy_template demo`), and bump the
+(`pyne --recreate-demo plugin list`, copy `skills/pynecore-strategy/templates/strategy_template.py`
+into the workdir's `scripts/`, then `pyne run strategy_template demo`; run by its repository path,
+`pyne` would write `strategy_template.toml` into the templates folder), and bump the
 version in `.claude-plugin/plugin.json`.
 
 ## License

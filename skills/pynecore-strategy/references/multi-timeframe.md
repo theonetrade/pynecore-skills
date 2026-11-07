@@ -8,7 +8,7 @@
 - [Confirmation timing](#confirmation-timing)
 - [Lower timeframe intrabars](#lower-timeframe-intrabars)
 - [Dependent and conditional calls](#dependent-and-conditional-calls)
-- [Alternatives that need no extra data](#alternatives-that-need-no-extra-data)
+- [Alternatives without `request.security`](#alternatives-without-requestsecurity)
 - [Limitations](#limitations)
 - [Debugging security contexts](#debugging-security-contexts)
 
@@ -127,9 +127,11 @@ delivered on the next chart bar.
   result. Order producers before consumers.
 - Nested calls are supported.
 
-## Alternatives that need no extra data
+## Alternatives without `request.security`
 
-For many strategies a higher-timeframe filter can be built on the chart data itself:
+A same-symbol context in minute notation already needs no extra data (see the table above), but
+every context is still a separate process. For many strategies a higher-timeframe filter can be
+built inside the script from the chart bars instead:
 
 - `timeframe.change("D")` is true on the first bar of a new day; combine with `Persistent`
   variables to accumulate the day's high/low/open.

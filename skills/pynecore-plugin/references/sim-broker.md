@@ -34,7 +34,10 @@ python -m pynecore.testing.broker_lab run broker_lab/suite.py --mode extended --
 
 The symbol after `simbroker:` is passed to the feed plugin unchanged (`multi_broker = False`), so
 it is written in the feed's notation. The feed's own `config/plugins/<feed>.toml` applies (Binance
-host overrides in `ccxt.toml`, `replay_bars` in `file.toml`).
+host overrides in `ccxt.toml`, `replay_bars` in `file.toml`). With `feed = "ccxt"` a spot pair
+such as `BINANCE:BTC/USDT` streams only with `default_type = "spot"` in `ccxt.toml` (with the
+default `swap` the Binance websocket rejects the symbol and reconnects forever); `feed =
+"ccxtrest"` has no such switch to set.
 
 ## Configuration (`config/plugins/simbroker.toml`)
 
@@ -156,7 +159,7 @@ python -m pynecore.testing.broker_lab run broker_lab/suite.py --mode extended --
   oversized until the strategy re-issues it on the next bar, exactly as in a real run, and the
   suite re-issues it with the remaining quantity before the next check.
 
-## Verified (PyneCore 6.12.1, scratch venv, `feed = "file"` on the hourly BTC/USDT replay)
+## Verified (PyneCore 6.12.1, scratch venv, `feed = "file"` on the hourly BTC/USDT replay, `account = "sim"`)
 
 | Check | Result |
 |-------|--------|

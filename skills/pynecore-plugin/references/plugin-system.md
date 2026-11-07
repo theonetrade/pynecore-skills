@@ -344,7 +344,7 @@ import the module (or call `install()`).
 | `--list-symbols` lists files of the current directory | the provider used `cwd` because `ohlcv_dir` is `None` in listing mode | fall back to the CLI's `app_state.data_dir` or the config's `root` |
 | Live replay logs `idle-bar synth emitted` and the strategy sees zero-volume bars, real bars vanish | historical timestamps older than two periods | re-stamp replayed bars onto the clock |
 | `watch_ohlcv` never returns a bar, no error | it slept longer than the runner's 2 s timeout and was cancelled every time | keep progress on `self`; sleep ≤ 1.5 s per call; or task + queue |
-| `does not have market symbol BTC/USDT`, reconnecting forever | ccxt.pro client built with `default_type = "swap"` for a spot pair | `default_type = "spot"` in `ccxt.toml`; or no websocket client at all (REST template) |
+| `does not have market symbol BTC/USDT`, reconnecting forever | ccxt.pro client built with `default_type = "swap"` for a spot pair (seen on Binance; OKX accepted the spot symbol) | `default_type = "spot"` in `ccxt.toml`; or no websocket client at all (REST template) |
 | Download stored a half-formed last bar | `download_ohlcv` forwarded the forming candle | return closed bars only (`candles[:-1]`, or `ts + period <= now`) |
 | Notifier plugin silent under a programmatic runner | the module was never imported, or the runner replaced the logger's handlers | `--import pynecore_telegram` / `install()`; remove only PyneCore's own handler |
 | Notifier found the wrong `config/plugins/<name>.toml` | the plugin resolved the workdir from `cwd` while the runner used `--workdir` | set `PYNE_WORK_DIR` for the run; the plugin reads `app_state` first when the CLI is present |

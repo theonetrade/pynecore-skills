@@ -102,7 +102,9 @@ window = spread[0:20]                    # read-only view of the last 20 values 
 - Annotate at the first assignment and assign on every bar (unconditionally), otherwise the
   history has gaps.
 - `x[0]` is the current value, `x[-1]` is `na` (never the future). Reading beyond the buffer is
-  `na`, not an error. The default buffer is 5000 bars; `max_bars_back(x, n)` resizes one series.
+  `na`, not an error. Every series keeps 5000 bars, which is also the maximum: `max_bars_back(x, n)`
+  cannot extend it (`n` > 5000 raises `ValueError`), so aggregate or keep `Persistent` state for
+  longer look-backs.
 - A series declared with `= na` takes its type from the first typed value stored.
 
 Pattern, previous-bar comparison: `rising = close > close[1]`.

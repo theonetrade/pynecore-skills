@@ -55,8 +55,10 @@ for an adverse move, so losing positions get liquidated by margin calls, and the
 with `Margin call` rows. Always set `default_qty_type` and `default_qty_value` explicitly (or
 pass `qty=` on every entry), and set a realistic commission.
 
-Every decorator argument is also a key in the `[script]` section of the script's `.toml` and in
-`ScriptRunner(settings={...})`. Constant-valued settings accept the constant or its string:
+Every decorator argument except `title`, `shorttitle`, `na_bool` and `close_by_id` is also a key in
+the `[script]` section of the script's `.toml` and in `ScriptRunner(settings={...})`. Those four are
+set only in the decorator: `settings={"na_bool": True}` and `run_backtest.py --setting na_bool=true`
+fail with `Not a settable script field`. Constant-valued settings accept the constant or its string:
 `strategy.fixed` or `"fixed"`, `strategy.commission.percent` or `"percent"`.
 
 ## Order functions
@@ -153,9 +155,9 @@ to model leverage (`margin_long=20` allows 5x):
 qty = math.min(qty, strategy.equity * 0.98 / (close * syminfo.pointvalue))
 ```
 
-`pyramiding` caps how many entries can stack in one direction. With the default (1) a second
-`entry` in the same direction is ignored while a position is open; a different-direction entry
-reverses.
+`pyramiding` caps how many entries can stack in one direction. With the default (`0`, which means
+one entry) a second `entry` in the same direction is ignored while a position is open; a
+different-direction entry reverses.
 
 ## Commission, slippage, margin
 
@@ -255,7 +257,8 @@ bars in trades (all/winning/losing), Sharpe ratio, Sortino ratio, Profit factor,
 `<script>_trade.csv` has two rows per trade (entry and exit) with: Trade #, Bar Index, Type
 (`Entry long`, `Exit long`, `Entry short`, `Exit short`, `Margin call`), Signal (the id or
 comment), Date/Time, Price, Contracts, Profit, Profit %, Cumulative profit (and %), Run-up,
-Drawdown (and %).
+Drawdown (and %). A position still open at the end gets a synthetic exit row with Signal `Open`
+at the last close (unrealized profit); leave it out when counting closed trades.
 
 `<script>.csv` is the plot file: `time, open, high, low, close, volume` followed by one column
 per `plot*()` title (or returned dict key). Missing values are `NaN`.

@@ -118,7 +118,8 @@ Facts worth knowing before composing a command (all verified on 6.12):
 - `--from` before the first stored bar cannot be appended: the CLI truncates after a
   confirmation (abort without a terminal).
 - Spot pairs streamed through `ccxt` need `default_type = "spot"` in `config/plugins/ccxt.toml`
-  (the default `swap` makes the websocket client reject `BTC/USDT` and reconnect forever).
+  (with the default `swap` the Binance websocket client rejects `BTC/USDT` and reconnects
+  forever; OKX accepted it, other exchanges unchecked, so set it for every spot pair).
 - `pyne run` (re)writes `scripts/<script>.toml` on every run unless `PYNE_SAVE_SCRIPT_TOML=0`.
 - `--profile` is refused with `--live` / `--broker`; `--live` is refused with a data file.
 

@@ -98,7 +98,9 @@ computed level to the symbol's tick grid before using it as a limit/stop price.
 Backtest: `ishistory`, `isconfirmed`, `isnew` are `True` on every bar, `isrealtime` `False`,
 `islast` `True` only on the final bar. Live mode: historical bars as above with `islast` `False`,
 then `isrealtime` `True`, `isconfirmed` only on the closing update of a bar, `isnew` on the first
-update of a bar. Use `barstate.islast` for one-time summaries (a final table, a log line).
+update of a bar. `islast` is also `True` on every realtime bar of a live run, so a one-time
+summary (a final table, a log line) needs `barstate.islast and not barstate.isrealtime`, as in
+`templates/strategy_template.py`.
 
 ## `timeframe`
 

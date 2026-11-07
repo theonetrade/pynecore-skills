@@ -6,7 +6,7 @@ Telegram notifications for PyneCore runs.
 pip install -e .                       # or: uv pip install -e .
 pyne telegram status                   # config path, effective settings
 pyne telegram test                     # one test message
-pyne run my_strategy ccxt:BINANCE:BTC/USDT@1 --live     # log/alert/broker lines are forwarded
+pyne run my_strategy ccxt:BYBIT:BTC/USDT:USDT@1 --live  # log/alert/broker lines are forwarded (spot pairs: default_type = "spot" in ccxt.toml)
 ```
 
 `<workdir>/config/plugins/telegram.toml` (generated on first use):

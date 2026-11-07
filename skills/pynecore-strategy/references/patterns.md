@@ -30,13 +30,15 @@ ll: Series[float] = ta.lowest(low, 20)
 breakout_up = close > hh[1]
 breakout_down = close < ll[1]
 
-# Mean reversion with a band
+# Mean reversion with a band (every ta.* call on its own line, never after `and`/`or`)
 basis, bb_up, bb_lo = ta.bb(close, 20, 2.0)
-revert_long = close < bb_lo and ta.rsi(close, 14) < 30
+rsi14 = ta.rsi(close, 14)
+revert_long = close < bb_lo and rsi14 < 30
 
 # Momentum regime
 mom = ta.roc(close, 20)
-regime_up = mom > 0 and close > ta.ema(close, 200)
+ema200 = ta.ema(close, 200)
+regime_up = mom > 0 and close > ema200
 
 # Confirmation: N consecutive bars in a condition
 count: Series[int] = 0
@@ -99,9 +101,10 @@ ticks = atr * 2 / syminfo.mintick
 strategy.exit("XL", "Long", trail_points=ticks, trail_offset=ticks)
 
 # Chandelier / structure trailing stop computed by you (stop only moves in your favour)
+hh10 = ta.highest(high, 10)          # every bar, outside the `if`
 trail: Persistent[float] = na
 if strategy.position_size > 0:
-    candidate = ta.highest(high, 10) - atr * 3
+    candidate = hh10 - atr * 3
     trail = candidate if na(trail) else math.max(trail, candidate)
     strategy.exit("XL", "Long", stop=trail)
 else:
@@ -271,7 +274,7 @@ if long_signal:
     log.info("LONG {0} fast={1} slow={2} atr={3} qty={4}", close, fast, slow, atr, qty)
 if bar_index % 500 == 0:
     log.info("bar {0} equity {1} pos {2}", bar_index, strategy.equity, strategy.position_size)
-if barstate.islast:
+if barstate.islast and not barstate.isrealtime:     # islast is true on every realtime bar in live mode
     log.info("net {0} trades {1} dd {2}%", strategy.netprofit, strategy.closedtrades, strategy.max_drawdown_percent)
 
 # Export intermediate values as plot columns; they appear in the plot CSV and in run_iter() plot_data

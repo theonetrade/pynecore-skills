@@ -14,7 +14,7 @@
 Inputs are the parameters of `main()`, with an `input.*()` call as the default value:
 
 ```python
-from pynecore.lib import script, input, close, ta, strategy, color
+from pynecore.lib import script, input, close, ta, strategy, color, timestamp
 from pynecore.types import Series
 
 

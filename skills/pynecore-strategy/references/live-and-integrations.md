@@ -24,10 +24,11 @@ pyne run my_strategy ccxt:BINANCE:ETH/USDT@60 --live -f -1000 --no-plot # skip t
   Provider mode downloads the history again on every start and **overwrites the cached
   `data/<provider>_<SYMBOL>_<TF>.ohlcv` with just that range**; `run_paper.py` below appends to
   the cache instead.
-- Spot pairs through `ccxt` need `default_type = "spot"` in `config/plugins/ccxt.toml`: the
-  default `"swap"` is applied to the websocket client, which then rejects `BTC/USDT`
-  (`does not have market symbol`) and the runner reconnects forever. Perpetuals keep `swap`
-  and the `:SETTLE` suffix.
+- Spot pairs through `ccxt`: set `default_type = "spot"` in `config/plugins/ccxt.toml`. The
+  default `"swap"` is applied to the websocket client; on Binance it then rejects `BTC/USDT`
+  (`does not have market symbol`) and the runner reconnects forever (OKX accepted the spot
+  symbol with `swap`, other exchanges were not checked, so set it anyway). Perpetuals keep
+  `swap` and the `:SETTLE` suffix.
 - `-f -N` is the warm-up: at least 2x the longest lookback, more for recursive averages
   (EMA/RMA/RSI/ATR). Default 500.
 - Ctrl+C stops with a graceful shutdown (`--shutdown-timeout`).
@@ -38,7 +39,7 @@ pyne run my_strategy ccxt:BINANCE:ETH/USDT@60 --live -f -1000 --no-plot # skip t
 ```bash
 <python> <skill>/scripts/run_paper.py my_strategy ccxt:BINANCE:BTC/USDT@1 --from -500 --bars 60      # simulated fills
 <python> <skill>/scripts/run_paper.py my_strategy ccxt:BYBIT:BTC/USDT:USDT@5 --duration 4h -i fast_length=10 --json
-<python> <skill>/scripts/run_live.py  my_strategy bybit:BTCUSDT@60 --from -1000          # preflight + dry run (exit 2)
+<python> <skill>/scripts/run_live.py  my_strategy bybit:BTCUSDT@60 --from -1000          # preflight + dry run (exit 0, or 1 on problems)
 <python> <skill>/scripts/run_live.py  my_strategy bybit:BTCUSDT@60 --from -1000 --yes    # real orders
 <python> <skill>/scripts/run_live.py  --list-brokers
 ```
@@ -70,13 +71,14 @@ simulated position, clean disconnect) and four paper trades with tick-level exit
 script is a strategy, the plugin subclasses `BrokerPlugin` (the built-in `ccxt` is data-only;
 broker plugins are `pynesys-pynecore-bybit`, `-capitalcom`, `-ctrader`),
 `config/plugins/<plugin>.toml` has active settings, and `--yes` is given. The dry run shows the
-sandbox/demo state (REAL MONEY otherwise), the `scripts/<name>.toml` that will trade (no
+venue state (SIMULATED for a plugin declaring `simulated_venue = True`, such as the simbroker
+template; SANDBOX / DEMO when a sandbox switch is on; REAL MONEY otherwise), the `scripts/<name>.toml` that will trade (no
 overrides, on purpose), and the exact command. While running it copies pyne's output to
 `output/logs/live_<script>_<UTC time>.log`, frames the `pyne broker resume RUN_ID QUARANTINE_ID`
 command when a quarantine starts, forwards Ctrl+C / SIGTERM for a graceful stop (positions stay
-on the venue) and returns pyne's exit code. Without a broker plugin installed it could only be
-verified up to the launch; the output streaming and quarantine detection were tested on a
-stand-in process.
+on the venue) and returns pyne's exit code. Verified end to end with the simbroker template
+(`pynecore-plugin` skill, `sim-broker.md`): entries, brackets, restart adoption, a quarantine
+framed on stderr with its resume command, graceful stop, exit 0.
 
 Gotchas:
 

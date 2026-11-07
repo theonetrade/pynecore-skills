@@ -43,7 +43,7 @@ Read this before declaring a strategy finished. Each entry: symptom, cause, fix.
 | Stop/target never fills | Wrong units: `profit`/`loss`/`trail_*` are ticks, `limit`/`stop` are prices | Convert with `/ syminfo.mintick` or use the price forms |
 | Stop drifts with volatility | Recomputing the stop from the current ATR every bar | Freeze the distance in a `Persistent` on the signal bar |
 | Both stop and target hit in one bar, "wrong" one chosen | Intrabar path unknown; heuristic decides | Run with finer data and `--timeframe` (bar magnifier) |
-| Second entry ignored | `pyramiding` default is 1 | Raise `pyramiding` or close before re-entering |
+| Second entry ignored | `pyramiding` default is 0 (one entry per direction) | Raise `pyramiding` or close before re-entering |
 | Position reverses unexpectedly | `strategy.entry` in the opposite direction reverses | Guard with `position_size` checks or use `strategy.order` |
 | Exit by signal happens but stats show more trades than expected | Partial closes each count | Check the trade CSV `Signal` column |
 | Position still open at the end of the data | Expected | Statistics ignore it; `open_trades` in `run_backtest.py` reports it |
@@ -74,7 +74,7 @@ Read this before declaring a strategy finished. Each entry: symptom, cause, fix.
 | Every run hits the exchange; slow; numbers differ between runs | `pyne run SCRIPT ccxt:...` (provider string) downloads the bars again on every run | Download once (`pyne data download`, `download_candles.py`), run on the file name; see [cli-and-data.md](cli-and-data.md#candle-cache-download-once-update-run-offline) |
 | A cached file suddenly holds only a few hundred bars | `pyne run SCRIPT ccxt:...` (provider mode, also with `--live`) rewrote `data/ccxt_<...>.ohlcv` with the run's range | Re-download (`download_candles.py SYMBOL -tf TF --truncate --from DATE`); paper-trade with `run_paper.py`, which only appends |
 | Last bar of a cached file has a wrong close/volume that never changes | It was stored while still forming; `continue` never rewrites a stored bar | Store closed bars only (`download_candles.py` default `--to closed`, or `--to` one bar back); repair with `--truncate` |
-| Live run on a spot pair logs `does not have market symbol BTC/USDT` and reconnects forever | `default_type = "swap"` (PyneCore's default in `config/plugins/ccxt.toml`) is applied to the websocket client; a spot symbol is then unknown | Set `default_type = "spot"` for spot pairs (`run_paper.py` does it for symbols without `:SETTLE`); perpetuals keep `swap` and the `:SETTLE` suffix |
+| Live run on a spot pair logs `does not have market symbol BTC/USDT` and reconnects forever | `default_type = "swap"` (PyneCore's default in `config/plugins/ccxt.toml`) is applied to the websocket client; on Binance a spot symbol is then unknown (OKX accepted it) | Set `default_type = "spot"` for spot pairs (`run_paper.py` does it for symbols without `:SETTLE`); perpetuals keep `swap` and the `:SETTLE` suffix |
 | `pyne data download` refuses a `--from` before the file's first bar | The file only grows at the end | `--truncate` and download again from the earlier date |
 | Binance download fails to resolve or connect | `api.binance.com` unreachable from this network | `[binance]` table in `config/plugins/ccxt.toml` with `urls.api.public = "https://data-api.binance.vision/api/v3"` (public spot data, no keys) |
 | Logo and spinner pollute captured output | CLI decorations | `PYNE_NO_LOGO=1`, `NO_COLOR=1` |
