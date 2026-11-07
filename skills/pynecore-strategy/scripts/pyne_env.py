@@ -191,8 +191,10 @@ def find_python(root: Path, workdir: Path | None) -> list[dict]:
 
     # the project's own environments come first: an activated venv of another project must not win
     bases = [root]
-    if workdir and workdir != root:
-        bases += [workdir, workdir.parent]
+    if workdir:
+        # the workdir itself and its parent: a project keeps .venv next to a workdir/ child, and
+        # $PYNE_WORK_DIR makes the workdir the root
+        bases += [b for b in (workdir, workdir.parent) if b not in bases]
     for base in bases:
         for name in VENV_CANDIDATES:
             py = python_in_venv(base / name)
@@ -234,8 +236,14 @@ def uses_uv(root: Path) -> bool:
 
 # ---------------------------------------------------------------- report
 
-def build_report(root: Path, env_workdir: Path | None = None) -> dict:
-    workdir, how = (env_workdir, "$PYNE_WORK_DIR") if env_workdir is not None else find_workdir(root)
+def build_report(root: Path, env_workdir: Path | None = None, env_missing: str | None = None) -> dict:
+    if env_missing is not None:
+        # pyne refuses such a workdir (it offers to create it), so no search either
+        workdir, how = None, f"not found: $PYNE_WORK_DIR={env_missing} does not exist"
+    elif env_workdir is not None:
+        workdir, how = env_workdir, "$PYNE_WORK_DIR"
+    else:
+        workdir, how = find_workdir(root)
     pythons = find_python(root, workdir)
     best = pythons[0] if pythons else None
     report: dict = {
@@ -266,7 +274,9 @@ def build_report(root: Path, env_workdir: Path | None = None) -> dict:
 def print_human(r: dict) -> None:
     print(f"Project root : {r['root']}")
     if not r["workdir"]:
-        print("Workdir      : NOT FOUND (no .pyne marker and no scripts/ data/ config/ layout)")
+        reason = r.get("workdir_found_by") or ""
+        print("Workdir      : NOT FOUND (" + (reason.removeprefix("not found: ") if "PYNE_WORK_DIR" in reason
+                                             else "no .pyne marker and no scripts/ data/ config/ layout") + ")")
         print("               create one: mkdir -p scripts/lib data config/plugins output/logs cache"
               " && printf 'workdir_version = \"1.0\"\\n' > .pyne")
     else:
@@ -336,7 +346,9 @@ def main() -> int:
                              "pynecore_version, pyne_cli, ...) instead of the text report")
     args = parser.parse_args()
     env = os.environ.get("PYNE_WORK_DIR")
-    if args.root is None and env:
+    if args.root is None and env and not Path(env).expanduser().is_dir():
+        report = build_report(Path("."), None, env)
+    elif args.root is None and env:
         env_workdir = Path(env).expanduser().resolve()
         report = build_report(env_workdir, env_workdir)
     else:

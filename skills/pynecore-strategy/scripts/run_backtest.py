@@ -77,8 +77,8 @@ def parse_sweep(spec: str) -> tuple[str, list]:
             raise SystemExit(f"bad range {spec!r}")
         start, stop = parse_value(parts[0]), parse_value(parts[1])
         step = parse_value(parts[2]) if len(parts) == 3 else 1
-        if not all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in (start, stop, step)):
-            raise SystemExit(f"bad range {spec!r}: start, stop and step must be numbers (name=start:stop[:step]); "
+        if not all(isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) for x in (start, stop, step)):
+            raise SystemExit(f"bad range {spec!r}: start, stop and step must be finite numbers (name=start:stop[:step]); "
                              f"for other values list them: name=a,b,c")
         if step == 0:
             raise SystemExit(f"bad range {spec!r}: step must not be 0")

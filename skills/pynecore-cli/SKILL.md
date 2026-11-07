@@ -126,6 +126,7 @@ Facts worth knowing before composing a command (all verified on 6.12):
 
 ```bash
 python3 <skill>/scripts/cli_help.py --check      # commands/options of the installed pyne vs references/commands.md
+                                                 # (groups added by installed CLI plugins, e.g. pyne simbroker, are skipped)
 python3 <skill>/scripts/cli_help.py --dump       # every --help page, for reading or diffing
 ```
 

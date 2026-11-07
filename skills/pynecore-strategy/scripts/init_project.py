@@ -144,27 +144,31 @@ def run(cmd: list[str], cwd: Path, env: dict | None = None) -> None:
         raise SystemExit(f"command failed (exit {e.returncode}): {' '.join(cmd)}")
 
 
-PYNECORE_REQ = re.compile(r"^\s*pynesys[-_.]pynecore\s*(\[([^\]]*)\])?", re.I)
+PYNECORE_REQ = re.compile(r"^\s*pynesys[-_.]pynecore\s*(\[([^\]]*)\])?(.*)$", re.I | re.S)
+DEFAULT_SPEC = ">=6.12"
 
 
-def pyproject_pynecore(pyproject: Path) -> tuple[bool, bool, bool]:
-    """(has a [project] table, depends on pynesys-pynecore, with the cli extra) for an existing file."""
+def pyproject_pynecore(pyproject: Path) -> tuple[bool, bool, bool, set[str], str]:
+    """(has a [project] table, depends on pynesys-pynecore, with the cli extra, its extras, the rest of the
+    requirement after the extras: version specifier and markers, e.g. "==6.12.0") for an existing file."""
     try:
         data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as e:
         raise SystemExit(f"{pyproject} cannot be read as TOML: {e}")
     project = data.get("project")
     if not isinstance(project, dict):
-        return False, False, False
+        return False, False, False, set(), ""
     for req in project.get("dependencies", []) or []:
         m = PYNECORE_REQ.match(str(req))
         if m:
             extras = {e.strip().lower() for e in (m.group(2) or "").split(",") if e.strip()}
-            return True, True, "cli" in extras
-    return True, False, False
+            return True, True, "cli" in extras, extras, (m.group(3) or "").strip()
+    return True, False, False, set(), ""
 
 
-def setup_env(root: Path, name: str, spec: str, ccxt: bool, python_version: str | None, use: str, created: list[str]) -> Path:
+def setup_env(root: Path, name: str, spec: str | None, ccxt: bool, python_version: str | None, use: str, created: list[str]) -> Path:
+    """spec: the --pynecore specifier, None when not given (a new dependency then gets DEFAULT_SPEC, an existing
+    one keeps its own)."""
     pyproject = root / "pyproject.toml"
     uv = shutil.which("uv")
     if use == "uv" and not uv:
@@ -172,23 +176,29 @@ def setup_env(root: Path, name: str, spec: str, ccxt: bool, python_version: str 
     use_uv = bool(uv) and use != "pip"
     add_dependency = False
     if not pyproject.exists():
-        pyproject.write_text(pyproject_text(name, spec, ccxt), encoding="utf-8")
+        pyproject.write_text(pyproject_text(name, spec or DEFAULT_SPEC, ccxt), encoding="utf-8")
         created.append("pyproject.toml")
     elif use_uv:
-        has_project, has_dep, has_cli = pyproject_pynecore(pyproject)
+        has_project, has_dep, has_cli, have_extras, have_rest = pyproject_pynecore(pyproject)
         if not has_project:
             raise SystemExit("pyproject.toml exists but has no [project] table (another tool manages it), so uv cannot "
                              "add PyneCore to it. Add pynesys-pynecore[cli,ccxt] with that tool, or re-run with "
                              "--env pip to install into .venv without touching pyproject.toml")
-        add_dependency = not (has_dep and has_cli)
-        log("pyproject.toml exists: " + ("adding pynesys-pynecore with uv add" if add_dependency
-                                         else "it already depends on pynesys-pynecore[cli], left unchanged"))
+        add_dependency = not (has_dep and has_cli) or (has_dep and spec is not None)
+        if add_dependency:
+            want = sorted(have_extras | {"cli"} | ({"ccxt"} if ccxt else set()))
+            # an existing requirement keeps its version specifier and markers (a pin stays a pin) unless --pynecore
+            # was given; a new one gets --pynecore or the default
+            rest = spec if spec is not None else (have_rest if has_dep else DEFAULT_SPEC)
+            requirement = f"pynesys-pynecore[{','.join(want)}]{rest}"
+            log(f"pyproject.toml exists: uv add {requirement}")
+        else:
+            log("pyproject.toml exists: it already depends on pynesys-pynecore[cli], left unchanged")
     else:
         log("pyproject.toml exists, left unchanged (pip mode installs into .venv only)")
 
     if use_uv:
-        extras = "cli,ccxt" if ccxt else "cli"
-        cmd = [uv, "add", f"pynesys-pynecore[{extras}]{spec}"] if add_dependency else [uv, "sync"]
+        cmd = [uv, "add", requirement] if add_dependency else [uv, "sync"]
         if python_version:
             cmd += ["--python", python_version]
         run(cmd, root)
@@ -203,7 +213,7 @@ def setup_env(root: Path, name: str, spec: str, ccxt: bool, python_version: str 
             raise SystemExit("virtual environment was not created")
         extras = "cli,ccxt" if ccxt else "cli"
         run([str(py), "-m", "pip", "install", "--upgrade", "pip"], root)
-        run([str(py), "-m", "pip", "install", f"pynesys-pynecore[{extras}]{spec}"], root)
+        run([str(py), "-m", "pip", "install", f"pynesys-pynecore[{extras}]{spec or DEFAULT_SPEC}"], root)
     py = venv_python(root)
     if py is None:
         raise SystemExit("no .venv/bin/python after the environment step")
@@ -260,9 +270,10 @@ def main() -> int:
     parser.add_argument("--python", dest="python_version", metavar="X.Y",
                         help="Python version for the environment, e.g. 3.13 (passed to `uv sync --python`;\n"
                              "uv downloads it when needed). Default: uv's default interpreter")
-    parser.add_argument("--pynecore", default=">=6.12", metavar="SPEC",
+    parser.add_argument("--pynecore", default=None, metavar="SPEC",
                         help="version specifier appended to pynesys-pynecore in pyproject.toml / pip, e.g. \">=6.12\",\n"
-                             "\"==6.12.0\". Default: \">=6.12\"")
+                             "\"==6.12.0\". Default: \">=6.12\" for a new dependency; an existing pyproject.toml dependency keeps\n"
+                             "its own specifier (only missing extras are added) unless this option is given")
     parser.add_argument("--no-ccxt", action="store_true",
                         help="install only the [cli] extra, without [ccxt] (no exchange data download)")
     parser.add_argument("--env", choices=("auto", "uv", "pip"), default="auto", metavar="auto|uv|pip",

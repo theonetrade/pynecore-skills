@@ -87,6 +87,17 @@ class Cli:
     def close(self) -> None:
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+    def plugin_groups(self) -> set[str]:
+        """Command groups that installed CLI plugins add to pyne (`pyne plugin list --json`, capability cli).
+        They are not PyneCore's commands, so the reference check leaves them out."""
+        out = subprocess.run([str(self.pyne), "plugin", "list", "--json"], capture_output=True, text=True, timeout=180,
+                             env=self.env, stdin=subprocess.DEVNULL)
+        try:
+            data = json.loads(out.stdout[out.stdout.index("{"):])
+        except ValueError:
+            raise RuntimeError(f"pyne plugin list --json gave no JSON ({out.returncode}): {out.stderr.strip()[:300]}")
+        return {p["name"] for p in data.get("plugins", []) if "cli" in (p.get("capabilities") or [])}
+
     def help(self, path: list[str]) -> str:
         cmd = [str(self.pyne), *path, "--help"]
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=self.env)
@@ -172,14 +183,17 @@ def parse_reference(md_path: Path) -> dict[str, set[str]]:
     return sections
 
 
-def check(tree: dict, md_path: Path) -> int:
+def check(tree: dict, md_path: Path, plugin_groups: set[str]) -> int:
     if not md_path.is_file():
         print(f"reference not found: {md_path}", file=sys.stderr)
         return 1
     ref = parse_reference(md_path)
     problems = 0
+    skipped = sorted(g for g in plugin_groups if g in tree["children"])
     for node in walk(tree):
         path = node["path"]
+        if path.split(" ", 1)[0] in plugin_groups:     # added by an installed CLI plugin, not part of PyneCore
+            continue
         if node["children"] and path:  # a command group (data, plugin, ...) has no section of its own
             continue
         if path not in ref:
@@ -197,16 +211,20 @@ def check(tree: dict, md_path: Path) -> int:
     for path in sorted(ref):
         if path and path not in live_paths:
             print(f"stale section (warning) pyne {path}: not in the installed CLI")
+    if skipped:
+        print(f"skipped plugin command group(s): {', '.join('pyne ' + g for g in skipped)} (installed CLI plugins)")
     if problems:
         print(f"{problems} difference(s): update references/commands.md", file=sys.stderr)
         return 1
-    print(f"OK: {sum(1 for n in walk(tree) if not n['children'] or not n['path'])} documented command(s) match the installed CLI")
+    count = sum(1 for n in walk(tree)
+                if (not n["children"] or not n["path"]) and n["path"].split(" ", 1)[0] not in plugin_groups)
+    print(f"OK: {count} documented command(s) match the installed CLI")
     return 0
 
 
 # ----------------------------------------------------------------------------- output
 
-def print_tree(tree: dict, version: str | None, pyne: Path) -> None:
+def print_tree(tree: dict, version: str | None, pyne: Path, plugin_groups: set[str] = frozenset()) -> None:
     print(f"pyne     : {pyne}")
     print(f"PyneCore : {version or 'unknown (no interpreter next to pyne)'}")
     print(f"global   : {', '.join(sorted(tree['options'])) or '-'}")
@@ -214,7 +232,8 @@ def print_tree(tree: dict, version: str | None, pyne: Path) -> None:
         if not node["path"]:
             continue
         if node["children"]:
-            print(f"{node['path']:<18} group: {', '.join(node['children'])}")
+            note = "  (added by a CLI plugin)" if node["path"] in plugin_groups else ""
+            print(f"{node['path']:<18} group: {', '.join(node['children'])}{note}")
             continue
         opts = ", ".join(f"{k}{'/' + v if v else ''}" for k, v in sorted(node["options"].items()))
         args = " ".join(a.upper() for a in node["arguments"])
@@ -238,7 +257,8 @@ def main() -> int:
     parser.add_argument("--check", action="store_true",
                         help=f"compare the installed commands and options with {REFERENCE.name} of this skill:\n"
                              "an option or command missing from the reference exits 1 (lines starting with UNDOCUMENTED);\n"
-                             "options the reference lists but the CLI lacks are warnings")
+                             "options the reference lists but the CLI lacks are warnings. Command groups added by installed\n"
+                             "CLI plugins (pyne plugin list --json, capability cli) are skipped and named")
     parser.add_argument("--reference", type=Path, default=REFERENCE, metavar="MD",
                         help="the Markdown file for --check (sections '## `pyne <command>`' holding `--option` names).\n"
                              "Default: references/commands.md of this skill")
@@ -265,8 +285,8 @@ def main() -> int:
             print(json.dumps({"pyne": str(pyne), "pynecore": pynecore_version(pyne), **to_json(tree)}, indent=2))
             return 0
         if args.check:
-            return check(tree, args.reference)
-        print_tree(tree, pynecore_version(pyne), pyne)
+            return check(tree, args.reference, cli.plugin_groups())
+        print_tree(tree, pynecore_version(pyne), pyne, cli.plugin_groups())
         return 0
     except RuntimeError as e:
         print(str(e), file=sys.stderr)

@@ -206,7 +206,7 @@ def main() -> int:
     env = os.environ.get("PYNE_WORK_DIR")
     if args.root is None and env:                    # the pyne CLI rule: an explicit folder wins, then the variable
         root = Path(env).expanduser().resolve()
-        workdir, how = root, "$PYNE_WORK_DIR"
+        workdir, how = root, "$PYNE_WORK_DIR" if root.is_dir() else "$PYNE_WORK_DIR (the folder does not exist)"
     else:
         root = Path(args.root or ".").resolve()
         workdir, how = locate_workdir(root)

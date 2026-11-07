@@ -133,7 +133,8 @@ def main() -> int:
                         help="--kind library only: version number N >= 1, giving the file vN.py. Default: 1")
     parser.add_argument("--create", action="store_true",
                         help="create the workdir structure when missing (scripts/lib, data, output, config, .pyne);\n"
-                             "when no workdir is found at all, ./workdir is created")
+                             "when no workdir is found at all, ./workdir is created. Without it a --workdir or\n"
+                             "$PYNE_WORK_DIR folder that does not exist (or has neither .pyne nor scripts/) is refused")
     parser.add_argument("--force", action="store_true",
                         help="overwrite the target file if it already exists (default: refuse)")
     parser.add_argument("--cli-only", action="store_true",
@@ -151,6 +152,12 @@ def main() -> int:
             workdir = Path.cwd() / "workdir"
         else:
             raise SystemExit("no workdir found; pass --workdir PATH or --create to make ./workdir")
+    if not args.create and not ((workdir / ".pyne").is_file() or (workdir / "scripts").is_dir()):
+        # like pyne, which refuses a missing workdir: a typo in --workdir or $PYNE_WORK_DIR must not create one
+        source = "--workdir" if args.workdir else ("$PYNE_WORK_DIR" if os.environ.get("PYNE_WORK_DIR") else "the search")
+        state = "does not exist" if not workdir.exists() else "has no .pyne marker and no scripts/ folder"
+        raise SystemExit(f"{workdir} (from {source}) {state}: not a PyneCore workdir. Check the path, or pass --create "
+                         f"to create it")
     if args.create or not (workdir / "scripts").is_dir():
         ensure_workdir(workdir)
 

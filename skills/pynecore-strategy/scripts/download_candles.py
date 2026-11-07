@@ -178,17 +178,21 @@ def exchange_table_warning(workdir: Path | None, data_dir: Path) -> str | None:
     used = data_dir.parent / "config" / "plugins" / "ccxt.toml"
     if not ours.is_file() or (used.is_file() and used.resolve() == ours.resolve()):
         return None
-    try:
-        import tomllib
-        tables = [k for k, v in tomllib.loads(ours.read_text(encoding="utf-8")).items() if isinstance(v, dict)]
-    except (OSError, ValueError):
-        return None
-    if not tables:
-        return None
+    import tomllib
+
+    def tables(path: Path) -> set[str]:
+        try:
+            return {k for k, v in tomllib.loads(path.read_text(encoding="utf-8")).items() if isinstance(v, dict)}
+        except (OSError, ValueError):
+            return set()
+    missing = sorted(tables(ours) - (tables(used) if used.is_file() else set()))
+    if not missing:
+        return None                                  # the file PyneCore reads has every table the workdir has
+    where = f"{used} has no " if used.is_file() else f"{used} does not exist, so no "
     return (f"warning: --data-dir {data_dir} is outside the workdir: PyneCore reads the exchange tables from "
-            f"{used}{' (missing)' if not used.is_file() else ''}, not from {ours}, so "
-            f"{', '.join('[' + n + ']' for n in tables)} (keys, sandbox, hosts, options) do not apply to this run. "
-            f"Use a data folder inside the workdir (the default <workdir>/data) or put a ccxt.toml at {used}")
+            f"{used}, not from {ours}; {where}{', '.join('[' + n + ']' for n in missing)} (keys, sandbox, hosts, "
+            f"options) for this run. Use a data folder inside the workdir (the default <workdir>/data) or put "
+            f"the tables into {used}")
 
 
 def candle_path(exchange: str, symbol: str, tf: str, data_dir: Path) -> Path:
