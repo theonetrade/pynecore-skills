@@ -36,10 +36,23 @@ feature, confirm against the installed package (`pyne run --help`, `inspect.sign
 Refresh the snapshot when a new PyneCore release is adopted:
 
 ```bash
-python3 <skill>/scripts/sync_docs.py --tag v6.12.0            # from the GitHub release (network)
+python3 <skill>/scripts/sync_docs.py --tag v6.12.1            # from the GitHub release (network)
 python3 <skill>/scripts/sync_docs.py --from /path/to/pynecore/docs   # from any local checkout
 python3 <skill>/scripts/sync_docs.py --check                  # verify files against MANIFEST.json
 ```
+
+Without access to the release download, the installed wheel is a source too: from 6.12.1 on,
+`pynesys-pynecore` ships its documentation as `pynecore/docs/` inside the package (6.12.0 does
+not), and the license files sit in the package's `dist-info/licenses/`:
+
+```bash
+SP=<venv>/lib/python3.X/site-packages
+python3 <skill>/scripts/sync_docs.py --from $SP/pynecore/docs --version 6.12.1 --commit <tag commit> \
+    --license $SP/pynesys_pynecore-6.12.1.dist-info/licenses/LICENSE \
+    --notice  $SP/pynesys_pynecore-6.12.1.dist-info/licenses/NOTICE
+```
+
+`git ls-remote --tags https://github.com/PyneSys/pynecore` prints the commit of each tag.
 
 The sync wipes `docs/`, copies the pages, LICENSE and NOTICE, and rewrites `MANIFEST.json`.
 Two pages about converting scripts written in another language through a cloud compiler are

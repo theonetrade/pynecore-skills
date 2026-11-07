@@ -122,11 +122,11 @@ confirm a changed API against the installed package (`pyne run --help`, `inspect
 S=skills/pynecore-docs/scripts
 
 python3 $S/sync_docs.py --check                      # verify every file against docs/MANIFEST.json
-python3 $S/sync_docs.py --tag v6.12.0                # replace the snapshot with the docs of that PyneCore release (GitHub download)
+python3 $S/sync_docs.py --tag v6.12.1                # replace the snapshot with the docs of that PyneCore release (GitHub download)
 python3 $S/sync_docs.py --from /path/to/pynecore/docs          # copy from a local checkout or any docs folder
-python3 $S/sync_docs.py --from /path/to/docs --version 6.12.0 --commit <sha>   # set the recorded version/commit explicitly
-python3 $S/sync_docs.py --tag v6.12.0 --keep-all     # also copy the pages excluded by default
-python3 $S/sync_docs.py --tag v6.12.0 --dest /tmp/docs-preview   # write somewhere else first
+python3 $S/sync_docs.py --from /path/to/docs --version 6.12.1 --commit <sha>   # set the recorded version/commit explicitly
+python3 $S/sync_docs.py --tag v6.12.1 --keep-all     # also copy the pages excluded by default
+python3 $S/sync_docs.py --tag v6.12.1 --dest /tmp/docs-preview   # write somewhere else first
 ```
 
 What it does: deletes the target folder, copies the pages plus `LICENSE` and `NOTICE`
@@ -179,8 +179,10 @@ skills/
 
 ## Versioning
 
-The references and templates track PyneCore 6.12 and PyneIDE 0.11; `skills/pynecore-docs/docs/MANIFEST.json`
-names the documented PyneCore version of the snapshot. When a newer release changes an API or a
+The references and templates track PyneCore 6.12 and PyneIDE 0.11; the documentation snapshot is
+PyneCore 6.12.1 (`skills/pynecore-docs/docs/MANIFEST.json` records the version, tag and commit).
+The 6.12.1 wheel also ships the documentation as `pynecore/docs/`, so `sync_docs.py --from` on an
+installed package refreshes the snapshot without the GitHub download (see the docs skill). When a newer release changes an API or a
 command: refresh the snapshot (`python3 skills/pynecore-docs/scripts/sync_docs.py --tag v<version>`),
 update the affected reference files and templates, run the templates against the demo data
 (`pyne --recreate-demo plugin list`, then `pyne run strategy_template demo`), and bump the
