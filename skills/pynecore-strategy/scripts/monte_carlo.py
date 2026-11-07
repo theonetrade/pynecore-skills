@@ -318,7 +318,8 @@ def run_prices(args) -> int:
 
     def once(data: list) -> dict:
         with open(os.devnull, "w") as sink, contextlib.redirect_stdout(sink):   # the script's log lines
-            return rb.run_once(script, iter(data), syminfo, inputs=inputs, settings=settings)
+            # a list, as pyne run and run_backtest.py pass it: the runner knows the last bar (calc_bars_count)
+            return rb.run_once(script, data, syminfo, inputs=inputs, settings=settings)
 
     t0 = time.monotonic()
     try:

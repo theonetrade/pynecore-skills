@@ -33,8 +33,9 @@ Rules that matter in practice:
   None`); a handle created in one bar and mutated on the next is the normal way to extend a
   trend line, move a box or refresh a table. `table.new` once, `table.cell` every bar.
 - **Object caps.** `@script.indicator/strategy(max_lines_count=, max_labels_count=,
-  max_boxes_count=, max_polylines_count=)`, default 50 each, upper bound 500 (also the fallback
-  in `request.security` contexts). Past the cap the **oldest object is deleted** (FIFO), so a
+  max_boxes_count=, max_polylines_count=)`, default 50 each; PyneCore 6.12.1 enforces no upper
+  limit (900 labels and 700 lines were all kept); 500 is only the fallback inside
+  `request.security` contexts. Past the cap the **oldest object is deleted** (FIFO), so a
   label-per-signal script keeps only the last N labels; delete explicitly (`box.delete(old)`)
   when the replacement policy should be yours. `linefill` and `table` have no cap.
 - **Libraries.** Inside a library's `main()` every `*.new` returns `na`; drawings belong to the
@@ -151,7 +152,7 @@ bar, a label per EMA cross (`max_labels_count=10`), a box replaced every 10 bars
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Labels or lines disappear from the snapshot after a while | `max_*_count` (default 50) deletes the oldest object | Raise the cap in the decorator (≤ 500) or delete your own obsolete objects |
+| Labels or lines disappear from the snapshot after a while | `max_*_count` (default 50) deletes the oldest object | Raise the cap in the decorator or delete your own obsolete objects |
 | No `drawings`, no colors in the output folder | The run was made without `--viz`; the plot CSV never carries styles | `--viz` / `--viz-journal`, or `viz_path=` in `ScriptRunner` |
 | Thousands of `ev` records per bar | A table or line rewritten every bar with `--viz-journal` | Journal only when a renderer needs the history; otherwise the end snapshot is enough |
 | `line.new` returned `na` | Called inside a library's `main()` | Draw in the script, return coordinates from the library |

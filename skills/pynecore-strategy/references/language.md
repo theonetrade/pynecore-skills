@@ -152,9 +152,12 @@ s1 = ema_slope(close, 20)      # its own ta.ema and its own `e` history
 s2 = ema_slope(volume, 20)     # independent state
 ```
 
-A call site inside a loop keeps one state shared by all iterations of that bar (iterating
-`for length in (10, 20, 50): ta.sma(close, length)` does **not** give three averages; write
-three calls, or build a helper that takes a list and uses `array.*`).
+A call site inside a loop keeps one state shared by all iterations of that bar: iterating
+`for length in (10, 20, 50): ta.ema(close, length)` does **not** give three averages (all three
+series came out identical), and a function with a `Persistent` counter called twice in a loop
+adds both steps to one total. Write three calls, or build a helper that takes a list and uses
+`array.*`. `ta.sma(close, n)` in a loop was correct in 6.12.1 because it sums its window from the
+series history, but treat every stateful call in a loop as shared.
 
 Calling a stateful function through a variable, callback or method (`f = ta.sma; f(close, 20)`)
 still works but is resolved at run time and slower. Recursion and functions stored in containers

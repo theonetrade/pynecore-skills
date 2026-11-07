@@ -58,14 +58,14 @@ na_bool=False)`. What each one does in PyneCore, which renders no chart:
 |---------|---------------------------|
 | `title`, `shorttitle` | names; in the `--viz` header (the script `.toml` does not list them) |
 | `overlay`, `format`, `precision`, `explicit_plot_zorder` | display hints for a renderer: written to the `--viz` header (`hdr.script`), no effect on values |
-| `max_lines_count`, `max_labels_count`, `max_boxes_count`, `max_polylines_count` | drawing caps (default 50, at most 500): past the cap the oldest object is deleted ([drawings-and-viz.md](drawings-and-viz.md)) |
+| `max_lines_count`, `max_labels_count`, `max_boxes_count`, `max_polylines_count` | drawing caps, default 50, no upper limit enforced (900 labels and 700 lines were all kept): past the cap the oldest object is deleted ([drawings-and-viz.md](drawings-and-viz.md)) |
 | `timeframe`, `timeframe_gaps` | **implemented**: the whole script runs on a higher timeframe built from the chart bars (section 4) |
 | `max_bars_back` | stored, **no effect**: every series keeps 5000 bars of history whatever is declared (section 3) |
-| `calc_bars_count` | **does not shorten the chart run** (all bars are calculated); it only limits the feeds of `request.security` contexts. Limit the chart with `--from` / `--to` |
-| `na_bool` | keeps the older three-state bool (a bool can be `na`, e.g. before warm-up); off by default, rarely needed in new code |
+| `calc_bars_count` | **calculates only the last N bars**; `bar_index` starts at 0 on the first of them (`calc_bars_count=100` on 2000 bars: 100 rows, `bar_index` 0..99, through `pyne run`, `run_backtest.py` and `ScriptRunner` given a list or `last_bar_index`). A `ScriptRunner` fed a bare iterator without `last_bar_index` cannot know where the data ends and calculates every bar. The feeds of `request.security` contexts are cut to the matching span |
+| `na_bool` | keeps the older three-state bool (a bool can be `na`, e.g. before warm-up); off by default, rarely needed in new code; set only in the decorator (not in the `.toml`, `--setting` rejects it) |
 | `scale`, `behind_chart`, `dynamic_requests` | accepted and stored, no effect |
 
-Every setting except the two names is listed, commented out with its default, in the `[script]`
+Every setting except `title`, `shorttitle` and `na_bool` is listed, commented out with its default, in the `[script]`
 table of `scripts/<name>.toml` and can be overridden there or per run (`run_backtest.py --setting`,
 `ScriptRunner(settings=...)`) without editing the code: `--setting 'timeframe="240"'` turned a plain
 indicator into a 4-hour one (on 860 hourly bars `bar_index` ended at 214 instead of 859).
@@ -135,11 +135,12 @@ Two ways, for different needs:
 | Mix several timeframes in one script | no | yes |
 | Extra data needed | none | none for the chart symbol |
 
-Verified on 2000 hourly bars with `timeframe="240"`: 498 values, each equal to the same script
-run on real 4-hour bars, placed on the chart bar whose close ends the 4-hour period (the 03:00 bar
-for the 00:00–04:00 period, 07:00 for the next); `bar_index` ends at 499; `timeframe_gaps=False`
-filled 1989 of the bars. Chart bars before the first complete period produce no output row (1997
-rows for 2000 bars). `syminfo.period` keeps the chart timeframe while `timeframe.period` reports
+Verified on 2000 hourly bars with `timeframe="240"`: 500 four-hour periods, `bar_index` 0..499.
+The plotted `ta.sma(close, 3)` has a value on 498 of them (its first two periods are warm-up),
+each equal to the same script run on real 4-hour bars and placed on the chart bar whose close ends
+the period (the 03:00 bar for the 00:00–04:00 period, 07:00 for the next); with
+`timeframe_gaps=False` the same series has a value on 1989 chart bars. Chart bars before the first
+complete period produce no output row (1997 rows for 2000 bars). `syminfo.period` keeps the chart timeframe while `timeframe.period` reports
 the script's (`timeframe.in_seconds(timeframe.period)` 14400, `timeframe.in_seconds(syminfo.period)`
 3600).
 
@@ -201,10 +202,10 @@ How to trust a new indicator:
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Values differ from the reference only on some bars | a `ta.*` call inside `if`, `and`/`or` or a conditional expression | compute every bar first, select afterwards |
-| Three moving averages in a loop come out identical | one call site in a loop shares one state | three calls, or an `array`-based helper |
+| Three EMAs (or RSIs, or your own functions with `Persistent` state) in a loop come out identical or wrong | one call site in a loop shares one state: three `ta.ema` came out equal, two `Persistent` counters gave 21 990 and 22 000 instead of 2000 and 20 000 | three calls, or an `array`-based helper. `ta.sma(close, n)` in a loop happened to be correct (it sums the window from the series history), but do not rely on which built-in is loop-safe |
 | `x[5500]` is `na` although the data has 10 000 bars | history is capped at 5000 bars per series | aggregate, or keep the needed value in `Persistent` state |
 | `ValueError: The max_bars_back cannot exceed 5000!` | `max_bars_back(series, n)` with `n` > 5000 | at most 5000 |
-| `calc_bars_count` set, every bar still calculated | it only cuts `request.security` feeds | `--from` / `--to` |
+| Only the last N bars have values and `bar_index` restarts at 0 | `calc_bars_count=N` in the decorator | remove it, or limit the range with `--from` / `--to` instead |
 | An indicator with `timeframe=` shows values on one bar in four | `timeframe_gaps=True` (the default) | `timeframe_gaps=False` to repeat the last value |
 | `SyntaxError` naming `plot` | plot-family call inside `if`, a loop or a helper | unconditional call, conditional value |
 | A level, fill or background is missing from the plot CSV | `hline`, `fill`, `bgcolor` have no column | `plot()` the value, or return it in the dict |
@@ -216,8 +217,11 @@ PyneCore 6.12.1, hourly BTC/USDT, `ScriptRunner` and `pyne run`.
 
 | Check | Result |
 |-------|--------|
-| `timeframe="240"` on 2000 hourly bars | 498 values, all equal to the same script on real 4-hour bars, stamped on the closing hour of each period; `bar_index` 0..499; 1997 output rows; `timeframe_gaps=False`: 1989 bars with a value |
-| `calc_bars_count=100` on 2000 bars | 2000 rows, `bar_index` 0..1999: no effect on the chart run |
+| `timeframe="240"` on 2000 hourly bars | 500 periods, `bar_index` 0..499; `ta.sma(close, 3)` valid on 498 (two periods of warm-up), all equal to the same script on real 4-hour bars, stamped on the closing hour of each period; 1997 output rows; `timeframe_gaps=False`: the SMA has a value on 1989 bars |
+| `calc_bars_count=100` on 2000 bars | 100 rows, `bar_index` 0..99 via `pyne run` (from 2025-12-24 21:00), `run_backtest.py` (`bars=100`) and `ScriptRunner` with a list or `last_bar_index`; 2000 rows only with a bare iterator and no `last_bar_index` |
+| drawing caps | `max_labels_count=900`, `max_lines_count=700`, one label and one line per bar on 1000 bars: 900 labels and 700 lines kept |
+| stateful calls in a loop (2000 bars) | three `ta.ema` (10, 20, 50) in a loop: identical series; three `ta.sma`: equal to direct calls; `Persistent` counters stepping 1 and 10: 21 990 and 22 000 |
+| `na_bool` override | absent from the script `.toml`; `--setting na_bool=true`: `Not a settable script field: na_bool` |
 | history depth on 10 340 bars | `close[4999]` correct; `close[5500]` `na` by default, with `max_bars_back=6000` in the decorator and after `max_bars_back(close, 6000)`; on a user series `max_bars_back(x, 6000)` raises the 5000 error |
 | hand-written Wilder RSI vs `ta.rsi` | difference 0 on 1986 bars, both first valid on bar 14 |
 | `ta.sma(close, 5)` called only on even bars vs every bar | 0 of 989 even bars equal, maximum difference 1591.17 |

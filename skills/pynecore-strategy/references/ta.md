@@ -170,4 +170,5 @@ confirmed pivot: `last_ph = fixnan(ta.pivothigh(5, 5))`.
   gives `nan`, and `na()` treats both as missing.
 - `ta.*` state belongs to the call site. Two different lines calling `ta.sma(close, 20)` are two
   independent averages, which is what you want. The same line executed in a loop keeps one
-  state shared by all iterations of that bar.
+  state shared by all iterations of that bar (three `ta.ema` lengths in a loop came out
+  identical; `ta.sma` of a series happens to survive it because it re-sums the window).

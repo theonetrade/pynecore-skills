@@ -21,7 +21,7 @@ Read this before declaring a strategy finished. Each entry: symptom, cause, fix.
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | An indicator jumps or lags randomly | A `ta.*` call inside an `if`, after `and`, or in a conditional expression; it ran only on some bars | Compute every indicator unconditionally at the top of `main()` |
-| Several averages in a loop are identical/wrong | One call site in a loop = one shared state | Separate calls, or compute from an `array` |
+| Several EMAs / RSIs (or your own stateful helpers) in a loop are identical or wrong | One call site in a loop = one shared state | Separate calls, or compute from an `array` |
 | `x[1]` is always `na` or equals `x` | Variable not annotated `Series[...]`, or assigned conditionally | Annotate at first assignment and assign every bar |
 | `TypeError: 'float' object is not subscriptable` | Indexing a call result directly (`ta.highest(high, 20)[1]`) | Assign to a `Series[float]` variable first, then index it |
 | A counter resets every bar | Plain local variable | `Persistent[int]` |
