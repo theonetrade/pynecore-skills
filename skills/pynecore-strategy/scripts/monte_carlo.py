@@ -396,8 +396,12 @@ def run_prices(args) -> int:
     if args.json:
         print(json.dumps(result, indent=2, default=str))
     else:
-        param = {"noise": f"noise {levels[0]} x bar range", "blocks": f"blocks of {args.block} bars",
-                 "windows": f"windows of {window} bars"}[args.method]
+        if args.method == "noise":                   # levels is empty for the other methods
+            param = f"noise {levels[0]} x bar range"
+        elif args.method == "blocks":
+            param = f"blocks of {args.block} bars"
+        else:
+            param = f"windows of {window} bars"
         title = (f"Monte Carlo: {args.method} ({param}), {len(rows)}/{args.runs} runs on {len(bars)} bars "
                  f"of {Path(args.data).name}, seed {args.seed}, {result['seconds']} s")
         print_report(title, f"script {script.name}", dist, keys, p_loss, args.dd_limit, p_dd, notes, args.method)

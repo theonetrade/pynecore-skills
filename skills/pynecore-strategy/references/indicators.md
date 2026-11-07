@@ -133,7 +133,7 @@ Two ways, for different needs:
 | `bar_index`, `[1]`, `ta.*` state | advance once per higher-timeframe bar | chart bars; the expression's own context advances per its bars |
 | Values on the chart bars inside an open period | `na` with `timeframe_gaps=True` (default), the last completed value with `False` | per `gaps` / `lookahead` ([multi-timeframe.md](multi-timeframe.md)) |
 | Mix several timeframes in one script | no | yes |
-| Extra data needed | none | none for the chart symbol |
+| Extra data needed | none | none for the chart symbol at a timeframe written in minutes (`"240"`, `"1440"`); a `"1D"`/`"W"`/`"M"` context needs `--security '1D=<file>'`, and the chart's own file is accepted ([multi-timeframe.md](multi-timeframe.md#supplying-the-data)) |
 
 Verified on 2000 hourly bars with `timeframe="240"`: 500 four-hour periods, `bar_index` 0..499.
 The plotted `ta.sma(close, 3)` has a value on 498 of them (its first two periods are warm-up),

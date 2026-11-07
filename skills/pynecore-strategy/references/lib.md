@@ -18,7 +18,7 @@ and `pynecore.types` (annotations). `ta` and `strategy` have their own pages
 - [`string`](#string)
 - [`color`](#color)
 - [Output: the plot family](#output-the-plot-family)
-- [Drawings: `label`, `line`, `box`, `table`, `polyline`, `linefill`, `hline`](#drawings-label-line-box-table-polyline-linefill-hline)
+- [Drawings: `label`, `line`, `box`, `table`, `polyline`, `linefill`](#drawings-label-line-box-table-polyline-linefill)
 - [`log`, `alert`, `runtime`](#log-alert-runtime)
 - [`request`](#request)
 - [`extra_fields`](#extra_fields)

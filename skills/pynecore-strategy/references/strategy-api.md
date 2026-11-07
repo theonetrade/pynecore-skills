@@ -12,7 +12,7 @@ Everything a strategy script needs beyond the language itself. Import with
 - [Commission, slippage, margin](#commission-slippage-margin)
 - [Position and performance variables](#position-and-performance-variables)
 - [Open and closed trade queries](#open-and-closed-trade-queries)
-- [Risk rules](#risk-rules)
+- [Risk rules](#risk-rules-strategyrisk)
 - [Statistics and trade CSV files](#statistics-and-trade-csv-files)
 - [Re-execution flags](#re-execution-flags)
 

@@ -41,7 +41,20 @@ constructors are not allowed inside the expression.
 
 ## Supplying the data
 
-Each context needs its own `.ohlcv` + `.toml` pair. Three ways to connect them:
+What a context needs depends on its symbol and on how its timeframe is written
+(`_derives_from_chart_feed` in PyneCore 6.12.1):
+
+| Context | Data | Verified on an hourly BTC/USDT chart |
+|---------|------|--------------------------------------|
+| same symbol, timeframe written in minutes or seconds and not below the chart's (`"240"`, `"1440"`) | **built from the chart bars**, nothing to supply; `--list-data` says `served from the chart data, nothing to supply` | `"1440"` without any extra file: previous-day close equal to the previous day's last hourly close on 380 of 380 bars |
+| same symbol, `D`/`W`/`M` notation (`"1D"`, `"W"`, `"M"`) | a feed of its own, `--security '1D=<file>'`; the chart's own file is accepted as that base and resampled, so no daily download is needed | without `--security`: `ValueError: No OHLCV data found for security context (symbol='FILE:BTCUSDT', timeframe='1D')`; `--security "1D=BTCUSDT_60"` (the hourly file) and an aggregated `BTCUSDT_1D` both gave 380 of 380 equal values |
+| another symbol, or `request.security_lower_tf()` | its own data, connected as below | `--list-data`: `Cross-symbol data (separate download / symbol_map / --security required)` |
+
+A file supplied for a context that could be built from the chart is still used: under
+`lookahead_on` its closed bars come from that file wherever the chart bars do not cover a period
+exactly (see [Lookahead and gaps](#lookahead-and-gaps)).
+
+Three ways to connect data:
 
 1. **Per run**: `pyne run s.py EURUSD_5 --security "1D=EURUSD_1D" --security "SP:SPX:1D=capitalcom_US500_1D"`
    or `ScriptRunner(security_data={"1D": "data/EURUSD_1D", "SP:SPX": "data/capitalcom_US500_1D"})`
@@ -50,8 +63,9 @@ Each context needs its own `.ohlcv` + `.toml` pair. Three ways to connect them:
 2. **Symbol map** in `config/symbol_map.toml`, written once with
    `pyne data map "SP:SPX" "capitalcom:US500"`; the data file name is derived from the provider's
    naming rules. Per-timeframe override: key `"SP:SPX:1D"`.
-3. **Aggregate on the fly** is not done for security contexts: a daily context on a 5-minute
-   chart needs the daily file. Create it with `pyne data aggregate EURUSD_5 -tf 1D`.
+3. **A file of its own** for a `D`/`W`/`M` context: either pass the chart's file
+   (`--security "1D=EURUSD_5"`, resampled), or build a daily file once with
+   `pyne data aggregate EURUSD_5 -tf 1D` and pass that.
 
 `pyne run s.py DATA --list-data` prints what a script needs.
 
