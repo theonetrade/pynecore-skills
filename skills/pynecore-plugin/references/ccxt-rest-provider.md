@@ -88,6 +88,7 @@ Design points:
 | `pyne plugin list` | `ccxtrest  CCXT REST  v0.1.0  [provider]` |
 | `pyne data download ccxtrest:BINANCE:BTC/USDT@60 --from 3` | `ccxtrest_BINANCE_BTC_USDT_60.ohlcv` + `.toml`, `ccxtrest.toml` generated |
 | `run_paper.py ema_cross ccxtrest:BINANCE:BTC/USDT@1 --from -300 --bars 2` | 341 bars appended to the cache, connect, two closed 1-minute bars 12:42 and 12:43 UTC delivered within seconds of their close, graceful shutdown, exit 0 |
+| `plugin_check.py ccxtrest --symbol BINANCE:BTC/USDT --timeframe 1 --bars 20 --live-seconds 130` (2026-11-07) | symbol info, 21 closed bars, live stream 2 closed bars and 25 intra-bar updates in 130 s, `OK`; the built-in websocket `ccxt` on the same config (`default_type` left at `swap`) received nothing and reconnected (`does not have market symbol BTC/USDT`) |
 | `plugin_check.py ccxtrest --symbol BINANCE:BTC/USDT --timeframe 1 --bars 20 --live-seconds 80` | all static checks pass (`multi_broker=True`, `feed_timeout_bars=30` inherited, `backfill_closed_bars` overridden), symbol info `BINANCE:BTCUSDT mintick 0.01`, download of the last 20 closed bars, live stream: 2 closed bars and 16 intra-bar updates in 80 s, first update immediately |
 
 ## Adapting the template

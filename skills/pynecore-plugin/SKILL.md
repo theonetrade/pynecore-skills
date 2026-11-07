@@ -30,7 +30,8 @@ pyne run my_strategy mybroker:X@60 --broker # order execution (BrokerPlugin)
 `plugin_check.py` loads the plugin exactly as `pyne` does, lists remaining abstract methods and
 the framework attributes, then (with `--symbol`) builds the provider against a temporary data
 folder, validates the symbol info a run needs, downloads a few bars and can run the real live
-generator for a while. Run it with the interpreter of the environment where the plugin is
+generator for a while; a live probe that receives nothing during a whole bar plus 30 s is a
+FAIL (exit 1). Run it with the interpreter of the environment where the plugin is
 installed. The pyne CLI regenerates `config/plugins/<name>.toml` for every installed plugin at
 each start (commented defaults, user values kept), so the config file appears after the first
 `pyne` call.
@@ -90,7 +91,8 @@ package, entry-point key, classes, the `PLUGIN_NAME` constant); without `--name`
   `__init__` (the run identity is derived from it before `connect()`); one venue order per leg
   under `envelope.client_order_id(KIND_*)`, a repeated id returns the existing order, a spent id
   raises `ClientOrderIdSpentError`; `ensure_venue_writes_allowed()` before writes;
-  `store_ctx.upsert_order(...)` for every leg placed; `watch_orders` yields incremental fills
+  `store_ctx.upsert_order(...)` for every leg placed and `store_ctx.set_filled(coid, cumulative)`
+  on every fill (restart adoption reads it); `watch_orders` yields incremental fills
   with stable `fill_id`s; venue-driven cancels carry `CANCEL_REASON_VENUE_*`, anything else the
   venue did on its own goes through `report_external_intervention` (quarantine); honest
   `get_capabilities`. The template implements all of it and the offline lab proves it
@@ -125,7 +127,8 @@ package, entry-point key, classes, the `PLUGIN_NAME` constant); without `--name`
   source bar and the closed bar on the completing one, so a live provider can serve a higher
   timeframe from a lower-timeframe feed.
 - Broker engine: a journal row missing for a placed leg fails later with `missing required
-  fields`; an exit amend after a partial fill must report `remaining_qty = intent qty` and
+  fields`; the engine never updates a row's `filled_qty`, the plugin must (`set_filled` on every
+  fill), or a restart adopts nothing (`owned=0.0`) and the strategy enters again; an exit amend after a partial fill must report `remaining_qty = intent qty` and
   `qty = filled + intent qty` or the lab's oracle sees a coverage shortfall; an external cancel
   reported through `report_external_intervention` quarantines the run within one update and the
   log carries the `pyne broker resume ...` command; OCA cancels with `CANCEL_REASON_VENUE_OCA`

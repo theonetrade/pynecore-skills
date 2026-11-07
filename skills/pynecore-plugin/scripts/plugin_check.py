@@ -301,13 +301,33 @@ def probe(cls, name: str, symbol: str, timeframe: str, bars: int, live_seconds: 
                         gen.close()                   # stops the stream thread, disconnects the provider
                     except RuntimeError:
                         pass
+            bar_s = float(in_seconds(timeframe))
+            if first_at is None:
+                detail = f"no update within {live_seconds:.0f}s on a {bar_s:.0f}s bar"
+                if live_seconds >= bar_s + 30.0:
+                    # a whole bar plus grace without a single update (not even the closing bar): the feed is not
+                    # delivering. Exception: a market outside its trading session legitimately sends nothing.
+                    hint = "; look for connection errors above (a market outside its session sends nothing: re-run in trading hours)"
+                    try:
+                        from pynecore.providers.ccxt import CCXTProvider
+                        if issubclass(cls, CCXTProvider) and getattr(config, "default_type", None) != "spot":
+                            hint += ("; a ccxt spot pair needs default_type = \"spot\" in config/plugins/ccxt.toml "
+                                     f"(now {getattr(config, 'default_type', None)!r}: the websocket client looks the pair "
+                                     "up among swap markets and reconnects forever)")
+                    except ImportError:
+                        pass
+                    rep.fail("live stream", detail + hint)
+                else:
+                    rep.warn("live stream", detail + f" (probe shorter than a bar plus 30 s; use --live-seconds {bar_s + 30:.0f} or more)")
+                return
             detail = (f"{counts['closed']} closed bar(s), {counts['intrabar']} intra-bar update(s) in {live_seconds:.0f}s; "
-                      f"first update after {first_at:.1f}s" if first_at is not None else
-                      f"no update within {live_seconds:.0f}s (expected when the bar is longer than the probe)")
+                      f"first update after {first_at:.1f}s")
             if not monotonic:
                 rep.fail("live stream", detail + "  closed bars not ascending")
+            elif counts["closed"] == 0 and live_seconds >= 2 * bar_s + 30.0:
+                rep.warn("live stream", detail + f"  no closed bar although the probe covered {live_seconds / bar_s:.1f} bar lengths")
             else:
-                (rep.ok if first_at is not None else rep.warn)("live stream", detail)
+                rep.ok("live stream", detail)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -323,7 +343,8 @@ def main() -> int:
     parser.add_argument("--bars", type=int, default=50, metavar="N", help="bars to download in the probe (integer >= 1). Default: 50")
     parser.add_argument("--live-seconds", type=float, default=0.0, metavar="SEC",
                         help="run the live stream for this many seconds and count updates (float; 0 = skip). Use >= 2 bar\n"
-                             "lengths to see a closed bar. Default: 0")
+                             "lengths to see a closed bar. No update at all within one bar length + 30 s is a FAIL (exit 1).\n"
+                             "Default: 0")
     parser.add_argument("--workdir", type=Path, metavar="DIR",
                         help="workdir whose config/plugins/<NAME>.toml configures the plugin. Default: $PYNE_WORK_DIR, else the\n"
                              ".pyne marker upwards from the current directory, else its workdir/ child; none: plugin defaults")

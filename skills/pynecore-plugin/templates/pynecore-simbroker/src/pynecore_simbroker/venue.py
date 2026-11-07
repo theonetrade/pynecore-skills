@@ -11,6 +11,8 @@ restarted `pyne run --broker` adopts the open orders and the position like it wo
 """
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import json
 import os
 import time
@@ -111,6 +113,9 @@ class SimVenue:
         self.slippage = slippage_ticks * (mintick if mintick > 0 else 0.0)
         self.quote_currency = quote_currency
         self._mtime = 0.0
+        # owner -> callback(record) run after each fill of that owner's order, before its event is queued:
+        # the plugin journals the cumulative filled_qty there (one venue can serve several runs in the lab)
+        self.fill_listeners: dict[str, Callable[[SimOrder], None]] = {}
         if path is not None and path.is_file():
             self.load()
         elif not state.cash:
@@ -289,6 +294,9 @@ class SimVenue:
                                status=OrderStatus.FILLED if remaining <= 1e-12 else OrderStatus.PARTIALLY_FILLED,
                                fee=o.fee + fee, fee_currency=self.quote_currency)
         record.fills += 1
+        listener = self.fill_listeners.get(record.run_name)
+        if listener is not None:
+            listener(record)                               # durable first, then the event
         st.pending_events.append((record.run_name, OrderEvent(
             order=record.order, event_type="filled" if remaining <= 1e-12 else "partial",
             fill_price=price, fill_qty=qty, timestamp=ts_ms / 1000.0, pine_id=record.pine_id,

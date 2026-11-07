@@ -64,8 +64,8 @@ class SimBrokerProfile(ReferenceVenueProfile):
         qty = float(step.values.get("qty", record.order.remaining_qty))
         if qty <= 0.0 or qty > record.order.remaining_qty + 1e-12:
             raise ValueError("fill qty must be positive and at most the remaining quantity")
+        # the plugin journals the cumulative filled_qty itself (SimBroker._journal_fill via the venue's listener)
         self.venue.fill(record, qty, float(step.values.get("price", 100.0)), runner.now_ms)
-        runner.runs[step.run].store_ctx.set_filled(record.order.client_order_id, record.order.filled_qty)
 
     def handle_step(self, runner: Any, step: Step) -> bool:
         if step.kind == "price":

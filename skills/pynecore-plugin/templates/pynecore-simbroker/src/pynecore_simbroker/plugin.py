@@ -124,7 +124,17 @@ class SimBroker(BrokerPlugin[SimBrokerConfig], CLIPlugin):
                 SimState(symbol=self.symbol or "SIM"), self._state_path(), fee_rate=self._cfg.fee_rate,
                 slippage_ticks=self._cfg.slippage_ticks, mintick=self._mintick(),
                 initial_balance=self._cfg.initial_balance, quote_currency=self._cfg.quote_currency)
+        self._venue_instance.fill_listeners[self.owner] = self._journal_fill
         return self._venue_instance
+
+    def _journal_fill(self, record: SimOrder) -> None:
+        """Keep the journal row's cumulative filled_qty current on every fill of this run's orders. At startup
+        the engine sums filled_qty (buys +, sells -) over the run's live journal rows to know which part of the
+        venue position is this run's; a row left at 0 makes a restart see owned=0, treat the run as flat while
+        the venue holds its position, and enter again."""
+        coid = record.order.client_order_id
+        if self.store_ctx is not None and coid:
+            self.store_ctx.set_filled(coid, float(record.order.filled_qty))
 
     # ------------------------------------------------------------------ data layer: delegated to the feed
 
