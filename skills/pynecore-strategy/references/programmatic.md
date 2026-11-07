@@ -35,9 +35,14 @@ python my_strategy.py data/BTCUSDT_1h.csv     # or .ohlcv
 uv run my_strategy.py data/BTCUSDT_1h.csv     # with inline script metadata, see below
 ```
 
-It converts a CSV/JSON/TXT in a temporary folder (symbol guessed from the filename), loads
-the matching `.toml`, runs every bar and writes `my_strategy.csv`, `my_strategy_trades.csv`,
-`my_strategy_strat.csv` next to the script. It does not support `request.security()` data or
+With a `.ohlcv` file it loads the `.toml` next to it, exactly as `pyne run` does. A CSV/JSON/TXT
+is copied to a temporary folder and converted **there**, so a `.toml` next to the CSV is ignored
+and a new one is guessed (currency USD, `mincontract` 1, ...): on the demo data that gave a net
+profit of 495.83 against 524.18 through `pyne run`, while the `.ohlcv` run matched to the cent
+(PyneCore 6.12.1, `pynecore/standalone.py`). Run standalone on the `.ohlcv`
+(`pyne data convert-from data.csv` once) whenever the symbol `.toml` matters. It runs every bar
+and writes `my_strategy.csv`, `my_strategy_trades.csv`, `my_strategy_strat.csv` next to the
+script. It does not support `request.security()` data or
 `--timeframe`; use `pyne run` or `ScriptRunner` for those.
 
 For a self-contained file that `uv run` can execute anywhere, put inline metadata at the very

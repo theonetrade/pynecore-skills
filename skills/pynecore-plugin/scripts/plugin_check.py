@@ -261,7 +261,7 @@ def probe(cls, name: str, symbol: str, timeframe: str, bars: int, live_seconds: 
                 return
             import _thread
             import threading
-            from pynecore.core.live_runner import live_ohlcv_generator
+            from pynecore.core.live_runner import LIVE_TRANSITION, live_ohlcv_generator
             counts = {"closed": 0, "intrabar": 0}
             first_at = None
             monotonic = True
@@ -277,8 +277,10 @@ def probe(cls, name: str, symbol: str, timeframe: str, bars: int, live_seconds: 
                                            syminfo=info, last_historical_timestamp=last_open, shutdown_timeout=10.0)
                 timer.start()
                 for item in gen:
-                    if not hasattr(item, "timestamp"):
-                        continue                      # LIVE_TRANSITION sentinel
+                    # LIVE_TRANSITION is an OHLCV(timestamp=-1, is_closed=True): compared by identity, otherwise
+                    # it counts as a closed bar and breaks the ascending check after a catch-up bar
+                    if item is LIVE_TRANSITION or not hasattr(item, "timestamp"):
+                        continue
                     if first_at is None:
                         first_at = time.monotonic() - t0
                     key = "closed" if item.is_closed else "intrabar"

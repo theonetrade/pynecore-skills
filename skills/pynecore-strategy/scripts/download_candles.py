@@ -458,7 +458,7 @@ def main() -> int:
         except Exception as e:  # one failing symbol must not stop the others
             msg = f"{type(e).__name__}: {e}"
             if "Unknown symbol" in msg:
-                msg += f"  (use the exchange's unified name, e.g. BTC/USDT or BTC/USDT:USDT; see --list-symbols)"
+                msg += "  (use the exchange's unified name, e.g. BTC/USDT or BTC/USDT:USDT; see --list-symbols)"
             st = {"symbol": symbol, "exchange": exchange, "timeframe": tf, "ok": False,
                   "file": str(candle_path(exchange, symbol, tf, data_dir)), "error": msg}
         results.append(st)

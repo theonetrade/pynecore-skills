@@ -30,7 +30,7 @@ from typing import Any
 
 from pynecore.core.broker.exceptions import ClientOrderIdSpentError, ExchangeOrderRejectedError, OrderSkippedByPlugin
 from pynecore.core.broker.idempotency import (
-    KIND_CANCEL, KIND_CLOSE, KIND_ENTRY, KIND_EXIT_SL, KIND_EXIT_TP,
+    KIND_CLOSE, KIND_ENTRY, KIND_EXIT_SL, KIND_EXIT_TP,
 )
 from pynecore.core.broker.models import (
     CancelDispositionOutcome, CapabilityLevel, DispatchEnvelope, ExchangeCapabilities, ExchangeOrder,
@@ -71,6 +71,7 @@ class SimBroker(BrokerPlugin[SimBrokerConfig], CLIPlugin):
     plugin_name = "SimBroker"
     multi_broker = False                 # the whole "EXCHANGE:SYMBOL" is passed to the feed plugin unchanged
     fill_report_grace_s = 5.0            # fills are published within one feed update
+    simulated_venue = True               # no exchange behind it: run_live.py labels it SIMULATED, not REAL MONEY
     feed_timeout_bars = 3                # replaced per instance by the feed plugin's own value
 
     def __init__(self, *, symbol: str | None = None, timeframe: str | None = None,

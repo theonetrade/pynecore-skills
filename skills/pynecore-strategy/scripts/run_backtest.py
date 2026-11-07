@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import itertools
 import json
 import math
@@ -131,12 +132,15 @@ def run_once(script: Path, bars, syminfo, *, inputs: dict, settings: dict,
              security: dict | None = None) -> dict:
     from pynecore.core.script_runner import ScriptRunner
 
-    runner = ScriptRunner(
-        script_path=script, ohlcv_iter=bars, syminfo=syminfo,
-        inputs=inputs or None, settings=settings or None,
-        plot_path=plot_path, strat_path=strat_path, trade_path=trade_path,
-        security_data=security or None,
-    )
+    try:
+        runner = ScriptRunner(
+            script_path=script, ohlcv_iter=bars, syminfo=syminfo,
+            inputs=inputs or None, settings=settings or None,
+            plot_path=plot_path, strat_path=strat_path, trade_path=trade_path,
+            security_data=security or None,
+        )
+    except ValueError as e:              # an --input / --setting name the script does not have
+        raise SystemExit(f"error: {e}")
     trades: list = []
     last_plot: dict = {}
     n_bars = 0
@@ -370,9 +374,14 @@ def main() -> int:
         force=args.force_convert, from_ms=parse_date_ms(args.from_), to_ms=parse_date_ms(args.to),
     )
 
+    # With --json, stdout carries only the JSON: the script's log.* lines (PyneCore's console handler
+    # writes to stdout), alert() and print() output go to stderr while the script runs.
+    quiet = (lambda: contextlib.redirect_stdout(sys.stderr)) if args.json else contextlib.nullcontext
+
     if not args.sweep:
-        res = run_once(script, bars, syminfo, inputs=inputs, settings=settings,
-                       plot_path=args.plot, strat_path=args.strat, trade_path=args.trade, security=security)
+        with quiet():
+            res = run_once(script, bars, syminfo, inputs=inputs, settings=settings,
+                           plot_path=args.plot, strat_path=args.strat, trade_path=args.trade, security=security)
         if args.json:
             print(json.dumps(res, indent=2, default=str))
         else:
@@ -385,7 +394,8 @@ def main() -> int:
     rows = []
     for combo in combos:
         point = dict(zip(names, combo))
-        res = run_once(script, bars, syminfo, inputs={**inputs, **point}, settings=settings, security=security)
+        with quiet():
+            res = run_once(script, bars, syminfo, inputs={**inputs, **point}, settings=settings, security=security)
         res["point"] = point
         rows.append(res)
     ranked = [r for r in rows if r.get("trades", 0) >= args.min_trades and metric_value(r, args.metric) is not None]

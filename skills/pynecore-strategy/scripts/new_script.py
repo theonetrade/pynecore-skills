@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import argparse
 import re
+import shlex
+import shutil
 import sys
 from pathlib import Path
 
@@ -78,6 +80,24 @@ def ensure_workdir(path: Path) -> None:
     marker = path / ".pyne"
     if not marker.exists():
         marker.write_text('workdir_version = "1.0"\n', encoding="utf-8")
+
+
+def find_pyne(workdir: Path) -> str | None:
+    """The project's pyne by full path: a .venv / venv in the workdir or up to two folders above it,
+    then the environment of this interpreter (not resolved: a venv's python is a symlink), then PATH."""
+    rels = ("bin/pyne", "Scripts/pyne.exe")
+    folder = workdir.resolve()
+    for _ in range(3):
+        for venv in (".venv", "venv"):
+            for rel in rels:
+                if (folder / venv / rel).is_file():
+                    return str(folder / venv / rel)
+        folder = folder.parent
+    for base in (Path(sys.executable).parent, Path(sys.prefix)):
+        for rel in ("pyne", "pyne.exe", *rels):
+            if (base / rel).is_file():
+                return str(base / rel)
+    return shutil.which("pyne")
 
 
 def main() -> int:
@@ -154,7 +174,12 @@ def main() -> int:
     if import_line:
         print(f"import it from a script with:  {import_line}")
     else:
-        print(f"run it with:  PYNE_NO_LOGO=1 pyne --workdir {workdir} run {args.name} <data>")
+        pyne = find_pyne(workdir)
+        print(f"run it with:  PYNE_NO_LOGO=1 {shlex.quote(pyne) if pyne else '<venv>/bin/pyne'} "
+              f"--workdir {shlex.quote(str(workdir))} run {args.name} <data>")
+        if not pyne:
+            print("  (no pyne found in a .venv/venv next to the workdir, beside this interpreter or on PATH;\n"
+                  "   install pynesys-pynecore[cli] into the project's environment)")
         print("the first run writes scripts/%s.toml with every input and setting" % args.name)
     return 0
 

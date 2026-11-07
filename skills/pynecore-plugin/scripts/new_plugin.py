@@ -62,7 +62,6 @@ def rewrite(text: str, old: dict, new: dict) -> str:
         (old["dist"], new["dist"]),
         (f'{old["key"]} = "', f'{new["key"]} = "'),                         # entry-point line in pyproject.toml
         (f'plugins/{old["key"]}.toml', f'plugins/{new["key"]}.toml'),       # config path in docstrings and READMEs
-        (f'{old["key"]}:', f'{new["key"]}:'),                               # provider strings in examples
         (f'pyne {old["key"]} ', f'pyne {new["key"]} '),                     # CLI group in examples
         (f'pyne plugin info {old["key"]}', f'pyne plugin info {new["key"]}'),
         (f'PLUGIN_NAME = "{old["key"]}"', f'PLUGIN_NAME = "{new["key"]}"'),   # module constant the code derives file names from
@@ -74,6 +73,11 @@ def rewrite(text: str, old: dict, new: dict) -> str:
     for a, b in pairs:
         if a != b:
             text = text.replace(a, b)
+    # provider strings in examples (file:BTCUSDT@60, ccxtrest:BINANCE:BTC/USDT@1, file:SYMBOL@TF): the key
+    # followed by ':' and an upper-case symbol or a <placeholder>. A plain `key:` replacement would also
+    # rewrite URIs such as sqlite3's "file:..." and break the renamed plugin.
+    if old["key"] != new["key"]:
+        text = re.sub(r"(?<![\w/.-])" + re.escape(old["key"]) + r":(?=[A-Z<])", new["key"] + ":", text)
     return text
 
 

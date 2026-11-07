@@ -21,10 +21,13 @@ Preflight, all of which must pass before anything starts:
 - DATA names an installed plugin that subclasses BrokerPlugin. The built-in `ccxt` is data-only;
   broker plugins are separate packages (pynesys-pynecore-bybit, -capitalcom, -ctrader, ...);
 - config/plugins/<plugin>.toml exists and has at least one active (uncommented) setting; a
-  sandbox / demo / testnet switch set to true is reported, otherwise the run is marked REAL MONEY;
+  sandbox / demo / testnet switch set to true is reported, a plugin class that declares
+  `simulated_venue = True` (the skill's simbroker template) is reported as SIMULATED, otherwise
+  the run is marked REAL MONEY;
 - scripts/<script>.toml is shown: it is the only source of inputs and settings for a live run.
   There are no --input/--setting overrides here on purpose: what trades is what is on disk.
-Without --yes the plan and the exact pyne command are printed and the exit code is 2.
+Without --yes the plan and the exact pyne command are printed and nothing starts: exit code 0
+when the preflight passed, 1 when it found problems (2 stays reserved for usage errors).
 
 While running, pyne's output is streamed and copied to output/logs/live_<script>_<UTC time>.log.
 A quarantine (`sync engine quarantined: kind=... quarantine_id=...` followed by its
@@ -78,9 +81,12 @@ def find_pyne(explicit: Path | None) -> Path:
         if not explicit.is_file():
             raise SystemExit(f"--pyne {explicit}: not a file")
         return explicit.resolve()
-    beside = Path(sys.executable).resolve().parent / "pyne"
-    if beside.is_file():
-        return beside
+    # Not .resolve(): a venv's bin/python is a symlink to the base interpreter, whose folder has no pyne.
+    # sys.prefix is the venv root even when the executable path is a symlink.
+    for folder in (Path(sys.executable).parent, Path(sys.prefix) / "bin", Path(sys.prefix) / "Scripts"):
+        for name in ("pyne", "pyne.exe"):
+            if (folder / name).is_file():
+                return folder / name
     on_path = shutil.which("pyne")
     if on_path:
         return Path(on_path)
@@ -354,7 +360,12 @@ def main() -> int:
     if not args.log_ohlcv:
         cmd.append("--no-log-ohlcv")
 
-    money = "SANDBOX / DEMO account" if cfg["sandbox"] else "REAL MONEY (no sandbox/demo switch set to true in the plugin config)"
+    if getattr(cls, "simulated_venue", False):
+        money = "SIMULATED venue (no exchange account, no real orders)"
+    elif cfg["sandbox"]:
+        money = "SANDBOX / DEMO account"
+    else:
+        money = "REAL MONEY (no sandbox/demo switch set to true in the plugin config)"
     print(f"Strategy : {script}   ({kind})")
     print(f"Broker   : {name} ({cls.__name__})   symbol {ps.provider_symbol}   timeframe {ps.timeframe}   -> {money}")
     print(f"Config   : {cfg['path']}" + (f"   active: {', '.join(cfg['active'])}" if cfg["active"] else ""))
@@ -370,7 +381,7 @@ def main() -> int:
         return 1
     if not args.yes:
         print("Dry run: add --yes to start. Test the logic first with run_paper.py on the same feed.")
-        return 2
+        return 0
 
     log_dir = args.log_dir or workdir / "output" / "logs"
     log_path = log_dir / f"live_{script.stem}_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}.log"

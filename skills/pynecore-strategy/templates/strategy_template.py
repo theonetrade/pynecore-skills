@@ -15,7 +15,7 @@ Structure (keep this order):
   inputs -> indicators (every bar) -> filters -> signals -> sizing -> orders -> exits -> outputs
 """
 from pynecore.lib import (
-    script, input, strategy, ta, close, bar_index, time, timestamp, na, nz, math,
+    script, input, strategy, ta, close, bar_index, time, timestamp, na, math,
     plot, plotshape, bgcolor, color, shape, location, log, syminfo, barstate, string,
 )
 from pynecore.types import Series, Persistent
@@ -126,7 +126,8 @@ def main(
     bgcolor(color.new(color.green, 92) if strategy.position_size > 0 else
             color.new(color.red, 92) if strategy.position_size < 0 else na)
 
-    if barstate.islast:
+    # barstate.islast is true on every realtime bar of a live run: report once, on the backtest's last bar
+    if barstate.islast and not barstate.isrealtime:
         log.info("Done: net {0}, trades {1}, win rate {2}%, max DD {3}%",
                  string.tostring(strategy.netprofit, "#.##"), strategy.closedtrades,
                  string.tostring(100 * strategy.wintrades / strategy.closedtrades if strategy.closedtrades > 0 else 0, "#.#"),

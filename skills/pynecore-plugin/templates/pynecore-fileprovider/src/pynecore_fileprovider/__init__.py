@@ -42,6 +42,8 @@ from pynecore.types.ohlcv import OHLCV
 
 __all__ = ["FileConfig", "FileProvider"]
 
+PLUGIN_NAME = "file"   # the entry-point key; the provider name recorded in converted .toml files
+
 logger = logging.getLogger(__name__)
 
 NATIVE_SUFFIXES = (".ohlcv",)
@@ -217,7 +219,7 @@ def _read_parquet(path: Path) -> tuple[list[str], list[tuple]]:
 
 
 def _read_sqlite(path: Path, table: str, query: str) -> tuple[list[str], list[tuple]]:
-    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    con = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)   # read-only URI
     try:
         cur = con.execute(query or f'SELECT * FROM "{table}"')
         columns = [d[0] for d in cur.description]
@@ -387,7 +389,7 @@ class FileProvider(LiveProviderPlugin[FileConfig]):
         cache = src.with_suffix(".ohlcv")
         if suffix in CONVERTER_SUFFIXES:
             from pynecore.core.data_converter import DataConverter
-            DataConverter().convert_to_ohlcv(src, provider="file", symbol=self.symbol, timezone=self._cfg.source_timezone)
+            DataConverter().convert_to_ohlcv(src, provider=PLUGIN_NAME, symbol=self.symbol, timezone=self._cfg.source_timezone)
             return cache
         if cache.is_file() and cache.stat().st_mtime >= src.stat().st_mtime:
             return cache

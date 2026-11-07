@@ -111,7 +111,8 @@ def scan(workdir: Path) -> dict:
                     entry["toml_error"] = True
             data.append(entry)
         for path in sorted((workdir / "data").glob("*.csv")):
-            if not path.name.endswith(".extra.csv"):
+            # a CSV whose .ohlcv twin exists is the converted source, not pending data
+            if not path.name.endswith(".extra.csv") and not path.with_suffix(".ohlcv").is_file():
                 data.append({"name": path.stem, "csv_not_converted": True})
     report["data"] = data
     report["output_files"] = sum(1 for p in (workdir / "output").glob("*") if p.is_file()) if (workdir / "output").is_dir() else 0
