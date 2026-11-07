@@ -30,7 +30,7 @@ pyne data download file:BTCUSDT@60                 # <data>/BTCUSDT_60.csv (or .
 pyne data download file:BTCUSDT@240                # same hourly file, aggregated to 4h -> data/file_BTCUSDT_240.ohlcv
 pyne run my_strategy file:BTCUSDT@60 -f -500       # backtest through the provider
 pyne run my_strategy file:BTCUSDT@1D --live        # daily bars replayed from the hourly file (replay_bars > 0), Ctrl+C to stop
-<python> run_paper.py my_strategy file:BTCUSDT@60 --from -300 --bars 100     # paper run with a bar limit
+<python> <skill>/../pynecore-strategy/scripts/run_paper.py my_strategy file:BTCUSDT@60 --from -300 --bars 100   # paper run, bar limit
 pyne data download file --list-symbols             # the stems of every source file in the data folder
 ```
 
@@ -121,7 +121,8 @@ Each `watch_ohlcv` call hands out one update, waiting `replay_speed` between sou
 sleeps of at most 1.5 s so the runner's cancellation never loses progress. Re-stamping: the first
 replayed source bar gets the timestamp of the target slot open now, each following bar one
 source period later; the OHLCV values are the file's. When the rows are exhausted the provider
-parks (or tails); stop the run with Ctrl+C, or use `run_paper.py --bars / --duration`.
+parks (or tails); stop the run with Ctrl+C, or use `--bars / --duration` of
+`../../pynecore-strategy/scripts/run_paper.py`.
 
 **Why re-stamp.** PyneCore's live runner synthesises a zero-volume bar whenever the last closed
 bar's timestamp lies more than two periods plus a grace period in the past, and then drops every

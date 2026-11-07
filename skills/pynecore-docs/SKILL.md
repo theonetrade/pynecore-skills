@@ -72,10 +72,10 @@ the first page to open; `references/inventory.md` lists every page with a one-li
 | `input.*` functions and the script `.toml` | `reference/inputs.md`, `overview/configuration.md` |
 | Writing and backtesting a strategy, settings, sizing | `strategy.md` |
 | `strategy.entry/exit/close/order`, variables, fill timing, several closes per bar | `reference/lib/strategy.md` |
-| Open/closed trade queries, risk rules | `reference/lib/strategy_opentrades.md`, `strategy_closedtrades.md`, `strategy_risk.md` |
+| Open/closed trade queries, risk rules | `reference/lib/strategy_opentrades.md`, `reference/lib/strategy_closedtrades.md`, `reference/lib/strategy_risk.md` |
 | Any `ta.*` function | `reference/lib/ta.md` |
 | `time()`, sessions, `na`/`nz`/`fixnan`, plot family signatures | `reference/lib/builtins.md` |
-| A namespace (`math`, `array`, `map`, `string`, `color`, `barstate`, `timeframe`, `syminfo`, `session`, `label`, `line`, `box`, `table`, `plot`, `log`, `alert`, `request`, ...) | `reference/lib/<namespace>.md` (`str.md` for `string`) |
+| A namespace (`math`, `array`, `map`, `string`, `color`, `barstate`, `timeframe`, `syminfo`, `session`, `label`, `line`, `box`, `table`, `plot`, `log`, `alert`, `request`, ...) | `reference/lib/<namespace>.md` (`reference/lib/str.md` for `string`) |
 | `request.security`, lookahead, security data, confirmation timing | `lib/request-security.md`, `reference/lib/request.md`, `overview/symbol-map.md` |
 | Currency rates, corporate events | `lib/request-data.md` |
 | Running scripts, `pyne run` options, outputs | `cli/run.md`, `cli/basics.md` |

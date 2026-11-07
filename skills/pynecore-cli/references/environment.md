@@ -95,7 +95,7 @@ User files are never overwritten except through the explicit `--recreate-*` opti
 | `data/<name>.toml` | `data download`, `convert-from`, `aggregate`, `run` on a CSV | every run on that data: symbol info; `[download]` section keeps the provider string |
 
 `config/` holds credentials: keep it out of version control (`config/.gitignore` with `*` and
-`!.gitignore` is the layout PyneIDE and `init_project.py` write).
+`!.gitignore` is the layout PyneIDE and `../../pynecore-strategy/scripts/init_project.py` write).
 
 ## Output files
 

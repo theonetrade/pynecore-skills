@@ -70,7 +70,7 @@ is dormant until the first record, when it resolves the workdir (`app_state` of 
 else `PYNE_WORK_DIR`, else the `.pyne` marker upwards from the current directory) and reads the
 TOML.
 
-Programmatic runners (`ScriptRunner` in your code, `run_paper.py`): nothing imports the plugin
+Programmatic runners (`ScriptRunner` in your code, `../../pynecore-strategy/scripts/run_paper.py`): nothing imports the plugin
 for you. `run_paper.py ... --import pynecore_telegram` imports it and exports the run's workdir
 as `PYNE_WORK_DIR` so the plugin reads the same `config/plugins/telegram.toml`; in your own code
 `import pynecore_telegram` (or `pynecore_telegram.install()`) after setting `PYNE_WORK_DIR`, and

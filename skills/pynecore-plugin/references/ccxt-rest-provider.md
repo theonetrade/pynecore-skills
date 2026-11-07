@@ -19,7 +19,7 @@ client call and keep the task + queue structure.
 pip install -e <skill>/templates/pynecore-ccxtrest     # needs pynesys-pynecore[ccxt]
 pyne data download ccxtrest:BINANCE:BTC/USDT@60 --from 2024-01-01     # same files as ccxt would write, prefix ccxtrest_
 pyne run my_strategy ccxtrest:BINANCE:BTC/USDT@1 --live -f -500
-<python> run_paper.py my_strategy ccxtrest:BINANCE:BTC/USDT@1 --from -300 --bars 5
+<python> <skill>/../pynecore-strategy/scripts/run_paper.py my_strategy ccxtrest:BINANCE:BTC/USDT@1 --from -300 --bars 5
 ```
 
 Provider strings are the ccxt ones (`ccxtrest:EXCHANGE:SYMBOL[:SETTLE]@TF`, `multi_broker`

@@ -52,6 +52,8 @@ host overrides in `ccxt.toml`, `replay_bars` in `file.toml`).
 
 ## Layout
 
+Paths below are inside the template folder, `templates/pynecore-simbroker/` of this skill.
+
 | File | Contents |
 |------|----------|
 | `src/pynecore_simbroker/config.py` | `SimBrokerConfig(LiveProviderConfig)` |
@@ -174,5 +176,7 @@ python -m pynecore.testing.broker_lab run broker_lab/suite.py --mode extended --
    run scripts that need an `UNSUPPORTED` one.
 6. Run the lab first (`OfflineSimBroker` shows how to cut the feed), then
    `plugin_check.py NAME`, then `pyne run ... --broker` on a demo account; the bundled
-   documentation (`development/broker-plugin-authoring.md`, `advanced/broker-plugin-testing.md`)
+   documentation
+   ([../../pynecore-docs/docs/development/broker-plugin-authoring.md](../../pynecore-docs/docs/development/broker-plugin-authoring.md),
+   [../../pynecore-docs/docs/advanced/broker-plugin-testing.md](../../pynecore-docs/docs/advanced/broker-plugin-testing.md))
    lists the release criteria.

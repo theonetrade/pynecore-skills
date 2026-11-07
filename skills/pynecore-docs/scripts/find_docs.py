@@ -163,6 +163,12 @@ def main() -> int:
         if not path.is_file() and not args.page.endswith(".md"):
             path = docs / (args.page + ".md")
         if not path.is_file():
+            rel = args.page if args.page.endswith(".md") else args.page + ".md"
+            if rel in (manifest or {}).get("excluded", []):
+                print(f"page excluded from the snapshot: {rel}  (MANIFEST.json -> excluded; "
+                      f"sync_docs.py --keep-all copies it)", file=sys.stderr)
+                print(f"online copy: {online_url(rel)}", file=sys.stderr)
+                return 1
             print(f"page not found: {args.page}  (try --list or --grep)", file=sys.stderr)
             return 1
         print(path.read_text(encoding="utf-8", errors="replace") if args.print else path)

@@ -61,10 +61,22 @@ Each context needs its own `.ohlcv` + `.toml` pair. Three ways to connect them:
 |--------------|----------|------|-----|
 | `barmerge.lookahead_off` (default) | last **closed** higher-timeframe bar | same | normal case, repaint-free |
 | `barmerge.lookahead_last_closed` | same as `lookahead_off` | same | explicit "last closed" intent |
-| `barmerge.lookahead_on` | the containing period **as built so far** from chart bars, unconfirmed | same | the `close[1]` idiom: `request.security(sym, "D", close[1], lookahead=barmerge.lookahead_on)` reads the previous completed period exactly |
+| `barmerge.lookahead_on` | bare value: the developing bar of the open period, built from the chart bars so far, unconfirmed; `[1]` and older: the context's own closed bars (see below) | same | the `close[1]` idiom: `request.security(sym, "D", close[1], lookahead=barmerge.lookahead_on)` reads the previous completed period exactly |
 
 PyneCore never exposes future data: with `lookahead_on` a bare `close` is the developing
-period's current value, never its final close. For cross-symbol higher-timeframe requests with
+period's current value, never its final close.
+
+Closed periods of a `lookahead_on` context are its own timeframe's bars (6.12.1). When the chart
+bars cover a period exactly, their fold *is* that bar. When they do not (a missing chart bar,
+the chart starting inside the period, a chart timeframe that does not divide the requested one),
+the closed bar is read from the context's data (`--security`), and on the period's last chart
+bar the value already equals that closed bar; without security data the incomplete fold is
+used. `lookahead_off` reads the security data whenever it is given. Verified on a 1-hour chart
+with a 4-hour `--security` file whose closes were shifted by +1000: with all four hours present
+`close[1]` under `lookahead_on` showed the chart fold while `lookahead_off` showed the shifted
+file; with one hour removed from the chart, `close[1]` switched to the shifted value. So when the
+security file and the chart data disagree (another feed, other session bounds), `lookahead_on`
+`[1]` and `lookahead_off` can differ on exactly covered periods; keep both from the same source. For cross-symbol higher-timeframe requests with
 `lookahead_on` the developing bar cannot be built, so the value is `na` until the period closes.
 
 `gaps=barmerge.gaps_off` (default) forward-fills the last value between higher-timeframe

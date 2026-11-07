@@ -1,7 +1,8 @@
 # The plugin system (PyneCore 6.12)
 
 From the sources of `pynecore.core.plugin`, `pynecore.core.config`, `pynecore.core.live_runner`,
-`pynecore.cli` and the bundled documentation (`development/plugin-system.md`), checked by
+`pynecore.cli` and the bundled documentation
+([../../pynecore-docs/docs/development/plugin-system.md](../../pynecore-docs/docs/development/plugin-system.md)), checked by
 installing and running the three templates of this skill.
 
 ## Contents
@@ -160,7 +161,7 @@ download fails fast. Anything else surfaces as a traceback.
 | `pyne run ... --live` | as above, then `live_ohlcv_generator(provider, ...)` (next sections) |
 | `request.security()` in live mode | a **security subprocess** builds its own instance from a `PluginSymbol(provider_name, symbol, timeframe, config, ...)`, downloads warm-up in memory and streams with the same contract; `syminfo` may be handed over so no second info request is needed |
 
-`run_paper.py` of the `pynecore-strategy` skill follows the download → generator path too, but
+`../../pynecore-strategy/scripts/run_paper.py` (the `pynecore-strategy` skill) follows the download → generator path too, but
 appends to the cache file instead of replacing it.
 
 ## LiveProviderPlugin: the stream
@@ -299,8 +300,8 @@ with a suite module exposing `build_suite(mode, seed)`; a `ReferenceVenueProfile
 `Scenario(name, profile_factory, seed, steps, runs, expected_violation)` and `Step(kind, run,
 values, check_invariants)`. Include a **control** scenario that breaks a rule on purpose with
 `expected_violation`, so a silent oracle is noticed. Read the bundled
-`development/broker-plugin-authoring.md` (contract checklist) and
-`advanced/broker-plugin-testing.md` (lab, demo-account matrix, release criteria) before writing a
+[../../pynecore-docs/docs/development/broker-plugin-authoring.md](../../pynecore-docs/docs/development/broker-plugin-authoring.md) (contract checklist) and
+[../../pynecore-docs/docs/advanced/broker-plugin-testing.md](../../pynecore-docs/docs/advanced/broker-plugin-testing.md) (lab, demo-account matrix, release criteria) before writing a
 plugin for a real venue; shipped examples are `pynesys-pynecore-bybit`, `-capitalcom`, `-ctrader`.
 
 ## Notifications and other side channels
@@ -327,7 +328,8 @@ import the module (or call `install()`).
 4. `<python> <skill>/scripts/plugin_check.py NAME --symbol S --timeframe TF --bars 50 [--live-seconds 90]`:
    abstract methods, constructor signature, symbol info completeness, a download into a temp
    folder, ascending and closed bars, then the live stream through PyneCore's own generator.
-5. `pyne data download NAME:S@TF`, `pyne run demo NAME:S@TF`, `run_paper.py demo NAME:S@TF --bars 3`.
+5. `pyne data download NAME:S@TF`, `pyne run demo NAME:S@TF`,
+   `<python> <skill>/../pynecore-strategy/scripts/run_paper.py demo NAME:S@TF --bars 3`.
 6. Deterministic live tests: the file template with `replay_bars`, or PyneCore's `replay` plugin
    with a JSON fixture (`config/plugins/replay.toml`, `fixture_path`; eager emission, so its bars
    are catch-up history).

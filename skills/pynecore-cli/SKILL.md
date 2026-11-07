@@ -140,8 +140,8 @@ confirms it exists in the installed version; report the version you ran against.
 | `references/environment.md` | `PYNE_*` variables, workdir discovery and creation, config and output files, prompts and terminal dependence, exit codes, logging, completion |
 | `scripts/cli_help.py` | Locate `pyne` in a project, print version and command tree, dump all help pages, check drift against `references/commands.md` (stdlib) |
 
-Writing the scripts and the wrapper tools (`run_backtest.py`, `download_candles.py`,
-`run_paper.py`, ...) are the `pynecore-strategy` skill; writing plugins (custom data providers,
+Writing the scripts and the wrapper tools (`../pynecore-strategy/scripts/run_backtest.py`,
+`download_candles.py`, `run_paper.py`, ... in that folder) are the `pynecore-strategy` skill; writing plugins (custom data providers,
 REST-only exchanges, notifiers) is the `pynecore-plugin` skill; the full documentation is
-bundled in `pynecore-docs` (`cli/basics.md`, `cli/run.md`, `cli/data.md`, `cli/broker.md`,
-`cli/symbol-browser.md`).
+bundled in `pynecore-docs`; its CLI pages are in `../pynecore-docs/docs/cli/` (`basics.md`,
+`run.md`, `data.md`, `broker.md`, `symbol-browser.md`).

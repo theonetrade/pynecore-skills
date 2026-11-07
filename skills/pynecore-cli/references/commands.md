@@ -332,7 +332,7 @@ Run it on the machine and with the workdir of the bot. A running bot picks the r
 within seconds, stops and restarts itself in place; a stopped bot resumes at its next start.
 The request lifts only the quarantine it names: a stale id fails and lists the open
 quarantines. Errors: `No broker store at <workdir>/output/logs/broker.sqlite`, `No open
-quarantine <id> for run '<run_id>'.` followed by the open ones (exit 1). The `cli/broker.md`
+quarantine <id> for run '<run_id>'.` followed by the open ones (exit 1). The [cli/broker.md](../../pynecore-docs/docs/cli/broker.md)
 documentation page explains what a resume accepts on the venue (position, orders, stop-loss
 and take-profit re-assert).
 

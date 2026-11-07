@@ -54,7 +54,11 @@ compiler service; it is not relevant to Python-only work.)
 | `cli/data.md` | Data Management: `download`, `convert-to`, `convert-from`, `aggregate`, file naming, `.ohlcv` format, providers |
 | `cli/symbol-browser.md` | Symbol Browser TUI for `pyne data download` |
 | `cli/broker.md` | Broker Run Management: quarantine, `pyne broker resume` |
-| `cli/compile.md` | Compiling scripts written in the upstream language (compiler service, API key) |
+
+`cli/compile.md` (`pyne compile`, the cloud compiler for scripts written in another language) is
+excluded from the snapshot (`docs/MANIFEST.json` → `excluded`), so `find_docs.py --page` does not
+find it; `find_docs.py --online cli/compile.md` prints its online URL, and the option reference is
+in [the pynecore-cli skill](../../pynecore-cli/references/commands.md#pyne-compile).
 
 ## reference/
 

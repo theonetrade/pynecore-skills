@@ -5,7 +5,8 @@ PyneCore renders no chart. Drawing objects (`line`, `label`, `box`, `table`, `po
 and `pyne run --viz` (or `ScriptRunner(viz_path=...)`) serializes it to an NDJSON file for a
 renderer or an analysis script of your own. `scripts/viz_inspect.py` summarizes such a file
 without a renderer. Everything below was verified on PyneCore 6.12.1 with the probe described at
-the end; the bundled documentation page is `programmatic/visual-output.md` (`pynecore-docs`).
+the end; the bundled documentation page is
+[../../pynecore-docs/docs/programmatic/visual-output.md](../../pynecore-docs/docs/programmatic/visual-output.md).
 
 ## 1. Drawing objects
 

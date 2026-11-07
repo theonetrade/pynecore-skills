@@ -42,7 +42,7 @@ each start (commented defaults, user values kept), so the config file appears af
 | `pynecore-fileprovider` (`file`) | `FileProvider(LiveProviderPlugin)` | Candles from `.ohlcv`, CSV, JSON, TXT, parquet or SQLite files: history for backtests and `pyne data download`; a higher timeframe than the file's is aggregated inside the provider (`file:BTCUSDT@240` on an hourly file); in live mode the last `replay_bars` bars are streamed as live bars (re-stamped onto the clock, paced, intra-bar updates), or the file is tailed for appended rows | `file:BTCUSDT@60`, `config/plugins/file.toml` | `references/file-provider.md` |
 | `pynecore-ccxtrest` (`ccxtrest`) | `CCXTRestProvider(CCXTProvider)` | The built-in ccxt plugin's history, symbol info and exchange config, with live bars from REST polling of `fetch_ohlcv` instead of websockets | `ccxtrest:BINANCE:BTC/USDT@1`, `config/plugins/ccxtrest.toml` (+ `ccxt.toml` exchange tables) | `references/ccxt-rest-provider.md` |
 | `pynecore-telegram` (`telegram`) | `TelegramPlugin(CLIPlugin)` | Forwards script `log.*` lines (realtime bars, level filter), `alert()` calls and `[BROKER]` / quarantine lines to a Telegram chat; `pyne telegram status | test | send TEXT` | `config/plugins/telegram.toml`, `PYNE_TELEGRAM*` env | `references/telegram-notifier.md` |
-| `pynecore-simbroker` (`simbroker`) | `SimBroker(BrokerPlugin, CLIPlugin)` | A complete broker plugin: candles from any provider plugin (`feed`), orders matched in-process (market/limit/stop/trailing, OCA brackets, fees, slippage), state in `cache/simbroker_<account>.json`, journal, restart adoption and quarantine as with a real venue; `pyne simbroker status | cancel-order ID | reset`; offline conformance suite `broker_lab/suite.py` | `simbroker:BINANCE:BTC/USDT@1 --broker`, `config/plugins/simbroker.toml` | `references/sim-broker.md` |
+| `pynecore-simbroker` (`simbroker`) | `SimBroker(BrokerPlugin, CLIPlugin)` | A complete broker plugin: candles from any provider plugin (`feed`), orders matched in-process (market/limit/stop/trailing, OCA brackets, fees, slippage), state in `cache/simbroker_<account>.json`, journal, restart adoption and quarantine as with a real venue; `pyne simbroker status | cancel-order ID | reset`; offline conformance suite `templates/pynecore-simbroker/broker_lab/suite.py` | `simbroker:BINANCE:BTC/USDT@1 --broker`, `config/plugins/simbroker.toml` | `references/sim-broker.md` |
 
 Each template is a complete package (`pyproject.toml` with the entry point, `src/<package>/`,
 README). `new_plugin.py TEMPLATE DEST --name NAME` copies and renames one (distribution,
@@ -95,12 +95,13 @@ package, entry-point key, classes, the `PLUGIN_NAME` constant); without `--name`
   venue did on its own goes through `report_external_intervention` (quarantine); honest
   `get_capabilities`. The template implements all of it and the offline lab proves it
   (`references/sim-broker.md`); the bundled documentation has the checklist and release criteria
-  (`development/broker-plugin-authoring.md`, `advanced/broker-plugin-testing.md`).
+  ([../pynecore-docs/docs/development/broker-plugin-authoring.md](../pynecore-docs/docs/development/broker-plugin-authoring.md),
+  [../pynecore-docs/docs/advanced/broker-plugin-testing.md](../pynecore-docs/docs/advanced/broker-plugin-testing.md)).
 - **Notifications**: PyneCore has no notification hook. Script `log.*` lines and the runner's
   `[BROKER]` lines go through the `pyne_core_logger` logger; `alert()` prints to the console.
   The Telegram template attaches a logging handler and wraps `alert`; the pyne CLI imports every
   installed plugin at startup, which is what activates it. Programmatic runners must import the
-  module themselves (`run_paper.py --import pynecore_telegram`).
+  module themselves (`<skill>/../pynecore-strategy/scripts/run_paper.py --import pynecore_telegram`).
 
 ## 4. Verified on 6.12 (facts a plugin author needs)
 
@@ -141,7 +142,7 @@ package, entry-point key, classes, the `PLUGIN_NAME` constant); without `--name`
 | `references/ccxt-rest-provider.md` | REST polling on top of the ccxt plugin: task + queue pattern, closed-bar detection, poll interval vs watchdog |
 | `references/telegram-notifier.md` | Notification options, the handler and alert hook, gating, rate limit, CLI commands, programmatic runs, other messengers |
 | `references/sim-broker.md` | The simulated broker: contract mapping line by line, matching rules, external intervention, CLI, the offline lab suite, verified lifecycle, adapting to a real venue |
-| `templates/pynecore-fileprovider/`, `templates/pynecore-ccxtrest/`, `templates/pynecore-telegram/`, `templates/pynecore-simbroker/` | Installable plugin packages (the broker one includes `broker_lab/suite.py`) |
+| `templates/pynecore-fileprovider/`, `templates/pynecore-ccxtrest/`, `templates/pynecore-telegram/`, `templates/pynecore-simbroker/` | Installable plugin packages (the broker one includes `templates/pynecore-simbroker/broker_lab/suite.py`) |
 | `scripts/new_plugin.py` | Scaffold a plugin package from a template with new names (stdlib) |
 | `scripts/plugin_check.py` | Load, inspect and probe an installed plugin: static contract, symbol info, download, live stream (project interpreter) |
 

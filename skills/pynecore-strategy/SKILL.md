@@ -50,7 +50,8 @@ Rules that follow from it:
   `data/<name>.toml` and check `mintick`, `pointvalue`, `mincontract`, `basecurrency`,
   `timezone`** before trusting results.
 - For details this skill's `references/` do not cover, the `pynecore-docs` skill carries the
-  complete PyneCore documentation offline (`find_docs.py --grep`, `--page`).
+  complete PyneCore documentation offline (`<skill>/../pynecore-docs/scripts/find_docs.py --grep`,
+  `--page`; pages in `../pynecore-docs/docs/`).
 - A project initialized by PyneIDE (`.pyneide/` folder, `pyneide.*` settings) has a managed
   interpreter and editor commands described by the `pynecore-ide` skill.
 
@@ -191,7 +192,7 @@ symptom-to-fix tables.
 | Bar data, time/session functions, `math`, `array`/`map`, `string`, `barstate`, `timeframe`, `syminfo`, plots, drawings, `log` | `references/lib.md` |
 | Drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`, `chart.point`), object caps, the `--viz` NDJSON format, reading it, `scripts/viz_inspect.py` | `references/drawings-and-viz.md` |
 | Workdir, `pyne run` options, data download/convert/aggregate, the candle cache (`continue`, forming bars, provider mode), symbol `.toml`, bar magnifier, outputs | `references/cli-and-data.md` |
-| The exact format of any `pyne` option, exit codes, prompts in non-interactive shells, `PYNE_*` variables, what each call creates in the workdir | the `pynecore-cli` skill (`references/commands.md`, `references/environment.md`) |
+| The exact format of any `pyne` option, exit codes, prompts in non-interactive shells, `PYNE_*` variables, what each call creates in the workdir | the `pynecore-cli` skill: [../pynecore-cli/references/commands.md](../pynecore-cli/references/commands.md), [../pynecore-cli/references/environment.md](../pynecore-cli/references/environment.md) |
 | `ScriptRunner`, `OHLCV`, `SymInfo`, standalone scripts, trades, sweeps | `references/programmatic.md` |
 | `request.security`, lookahead modes, security data, symbol map | `references/multi-timeframe.md` |
 | Live mode, broker plugins, DataFrame bridge, FreqTrade, notifications | `references/live-and-integrations.md` |
