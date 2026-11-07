@@ -56,12 +56,14 @@ message instead of simulating. A perturbed run that raises (a script meeting pri
 saw) is counted, left out and named in a note.
 
 Seeds: every run draws its own 64-bit seed from one generator seeded with `--seed`, so the same
-`--seed` repeats the simulations exactly and another `--seed` shares none of them (`--out` lists
-each run's seed, and a ladder's `noise` level).
+`--seed` repeats the simulations exactly and another `--seed` shares none of them. A noise ladder
+reuses the same run seeds at every level (common random numbers): each level scales the very same
+Gaussian draws, so the differences between levels come from the noise size alone. `--out` lists
+each run's seed, and a ladder's `noise` level, so runs can be paired across levels.
 
 | `--method` | Parameter | What it generates |
 |------------|-----------|-------------------|
-| `noise` (default) | `--noise F` or `F1,F2,...` (default 0.1) | high, low and close plus Gaussian noise with a standard deviation of `F` × the bar's high-low range; the open is the noisy previous close plus the bar's original gap (a 24/7 market stays gap-free, an exchange-session market keeps its gaps exactly); high and low re-taken as max/min; timestamps and volume kept. Several levels run `--runs` simulations each and print a ladder |
+| `noise` (default) | `--noise F` or `F1,F2,...` (default 0.1) | high, low and close plus Gaussian noise with a standard deviation of `F` × the bar's high-low range; the open is the noisy previous close plus the bar's original gap (a 24/7 market stays gap-free, an exchange-session market keeps its gaps exactly); high and low re-taken as max/min; timestamps and volume kept. Several levels run `--runs` simulations each, with the same run seeds, and print a ladder. Ignored (not even parsed) by the other methods |
 | `blocks` | `--block BARS` (default 24) | a synthetic history: each bar as ratios to the previous close (open, high, low, close), random blocks of consecutive bars drawn with replacement and re-chained from the first close; original timestamps (sessions and time filters keep working), the blocks' volumes. Same local behaviour, another path |
 | `windows` | `--window BARS` (default half the data) | random contiguous sub-periods; the original column stays empty because a sub-period is not comparable with the whole history |
 
@@ -128,12 +130,12 @@ profit factor 0.81.
 | `trades`, bootstrap, 2000 runs, compound | net p5/p50/p95 −8.38/−4.36/−0.23 %, 96.0 % of runs losing; drawdown p95 8.90 %, 10.4 % of runs reach 8 % |
 | `trades`, shuffle + `--skip 0.1` | 314–332 trades per run, net p5/p95 −5.17/−2.64 % |
 | `trades` without the statistics CSV | capital estimated 9 995.05 from the rounded cumulative %, with a note; `--capital 10000` exact; `--capital 0` refused |
-| `prices`, noise ladder 0.01/0.02/0.05/0.1/0.2, 60 runs each, 66 s | net median −4.16/−4.56/−4.75/−5.33/−6.86 %, drawdown median 5.08 → 7.41 %; at 0.01 the original −4.36 % lies inside the band −4.59..−3.79: noise sensitivity, not fitting |
+| `prices`, noise ladder 0.01/0.02/0.05/0.1/0.2, 60 runs each, same seeds at every level, 66 s | net median −4.16/−4.36/−4.86/−5.51/−7.30 %, original rank 32/50/77/92/98 %, drawdown median 5.08 → 7.72 %; paired by seed, net at 0.2 is below net at 0.01 for 60 of 60 runs; at 0.01 the original −4.36 % lies inside the band −4.59..−3.79: noise sensitivity, not fitting. With independent seeds per level the same ladder read 32/68/73/88/100 %, the 0.02 level out of line |
 | `prices --method noise` (0.1), 100 runs, 22 s | net p5/p50/p95 −6.85/−5.50/−4.32 %, original rank 94 %; 100 % of runs losing |
 | `prices --method blocks --block 48`, 100 runs, 21 s | net p5/p50/p95 −7.28/−3.17/+0.67 %, 90 % losing; drawdown p95 8.57 % |
 | `prices --method windows --window 3000`, 100 runs, 6 s | net p5/p95 −3.22/+0.90 %, 73 % of windows losing |
 | generated bars | `noise` and `blocks`: 0 invalid OHLC bars, timestamps unchanged; blocks: standard deviation of log returns 0.0042–0.0046 vs 0.0045, paths ending at 45 053 / 118 838 / 126 010 vs 76 530; noise on a market with 1–3 % gaps every 7th bar: every gap kept to 7e-15 |
-| seeds | `--seed 42` and `--seed 43`, 20 runs each: no shared run seed, no identical run (an earlier version that used seed + i shared 19 of 20); the same seed twice: identical JSON |
+| seeds | `--seed 42` and `--seed 43`, 20 runs each: no shared run seed, no identical run (an earlier version that used seed + i shared 19 of 20); the same seed twice: identical JSON; `--method blocks` / `windows` with `--noise abc`: the option is ignored and the runs complete |
 | failures | a script that raises on some perturbed runs: `11/20 runs`, the failures named; a script failing on the original data or a strategy without trades: one-line refusal, exit 1 |
 
 The verdict for this strategy is consistent across all tests: it loses on almost every resampled

@@ -305,12 +305,14 @@ def run_prices(args) -> int:
         window = args.window or len(bars) // 2
         if not 2 <= window <= len(bars):
             raise SystemExit(f"--window {window}: must be between 2 and the number of bars ({len(bars)})")
-    try:
-        levels = [float(x) for x in str(args.noise).split(",") if x.strip()]
-    except ValueError:
-        raise SystemExit(f"--noise {args.noise!r}: one number or a comma-separated list, e.g. 0.1 or 0.02,0.05,0.1")
-    if args.method == "noise" and (not levels or any(not (math.isfinite(v) and v > 0) for v in levels)):
-        raise SystemExit("--noise must be > 0 (a fraction of each bar's high-low range, e.g. 0.1 or 0.02,0.05,0.1)")
+    levels: list[float] = []
+    if args.method == "noise":                       # --noise means nothing to blocks / windows: not even parsed
+        try:
+            levels = [float(x) for x in str(args.noise).split(",") if x.strip()]
+        except ValueError:
+            raise SystemExit(f"--noise {args.noise!r}: one number or a comma-separated list, e.g. 0.1 or 0.02,0.05,0.1")
+        if not levels or any(not (math.isfinite(v) and v > 0) for v in levels):
+            raise SystemExit("--noise must be > 0 (a fraction of each bar's high-low range, e.g. 0.1 or 0.02,0.05,0.1)")
     if args.method == "blocks" and args.block < 1:
         raise SystemExit("--block must be >= 1 bar")
 
@@ -329,13 +331,15 @@ def run_prices(args) -> int:
     if (original.get("trades") or 0) < 2:
         raise SystemExit(f"the original run has {original.get('trades') or 0} closed trade(s): nothing to compare "
                          f"(check the inputs, settings and the --from/--to range)")
-    # every run gets its own seed drawn from one generator: --seed 42 and --seed 43 share no runs
+    # every run gets its own seed drawn from one generator: --seed 42 and --seed 43 share no runs. A noise ladder
+    # reuses the same seeds at every level (common random numbers): level L scales the very same Gaussian draws,
+    # so the differences between levels come from the noise size, not from different random paths
     master = random.Random(args.seed)
+    seeds = [master.getrandbits(64) for _ in range(args.runs)]
 
     def simulate(make, label: str, extra: dict) -> tuple[list[dict], list[str]]:
         rows_, failed_ = [], []
-        for i in range(args.runs):
-            run_seed = master.getrandbits(64)
+        for i, run_seed in enumerate(seeds):
             try:
                 res = once(make(random.Random(run_seed)))
                 rows_.append(extra | {k: res.get(k) for k in ("trades", "net_profit_pct", "profit_factor", "win_rate",
@@ -426,11 +430,13 @@ def noise_ladder(args, levels: list[float], simulate, bars: list, original: dict
         write_rows(args.out, all_rows)
     if args.json:
         print(json.dumps({"mode": "prices", "method": "noise", "ladder": ladder, "runs_per_level": args.runs,
+                          "common_seeds": True,
                           "seed": args.seed, "script": str(script), "data": str(args.data), "bars": len(bars),
                           "original": orig, "dd_limit_pct": args.dd_limit, "seconds": seconds}, indent=2, default=str))
         return 0
     print(f"Monte Carlo: noise ladder {', '.join(f'{v:g}' for v in levels)} x bar range, {args.runs} runs per level "
-          f"on {len(bars)} bars of {Path(args.data).name}, seed {args.seed}, {seconds} s")
+          f"(the same run seeds at every level) on {len(bars)} bars of {Path(args.data).name}, seed {args.seed}, "
+          f"{seconds} s")
     print(f"script {script.name}; original: net {fmt(orig['net_profit_pct'], 2)} %, max drawdown "
           f"{fmt(orig['max_drawdown_pct'], 2)} %, profit factor {fmt(orig['profit_factor'], 2)}, {fmt(orig['trades'], 0)} trades")
     print(f"{'noise':>7} {'runs':>5} {'net p5':>8} {'median':>8} {'p95':>8} {'rank':>6} {'DD median':>10} "
@@ -566,7 +572,8 @@ def main() -> int:
                     help="noise: standard deviation as a fraction of each bar's high-low range (float > 0) on high,\n"
                          "low and close; the open follows the noisy previous close plus the original gap. Noise adds\n"
                          "volatility (0.1: return stdev about +3 %%, 0.3: about +23 %%). A comma-separated list\n"
-                         "(e.g. 0.02,0.05,0.1) runs --runs simulations per level and prints a ladder. Default: 0.1")
+                         "(e.g. 0.02,0.05,0.1) runs --runs simulations per level with the same run seeds at every\n"
+                         "level and prints a ladder. Ignored by the other methods. Default: 0.1")
     pr.add_argument("--block", type=int, default=24, metavar="BARS",
                     help="blocks: block length in bars (integer >= 1); longer keeps more of the trends and\n"
                          "volatility clusters. Default: 24")
