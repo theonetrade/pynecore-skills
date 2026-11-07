@@ -14,6 +14,7 @@ prices  Re-run the strategy on perturbed price data through ScriptRunner, the wa
         the project's interpreter (pynesys-pynecore installed):
 
     .venv/bin/python monte_carlo.py prices scripts/my_strategy.py data/BTCUSDT_60.ohlcv --method noise --runs 100
+    .venv/bin/python monte_carlo.py prices scripts/my_strategy.py data/BTCUSDT_60.ohlcv --noise 0.02,0.05,0.1 --runs 50
     .venv/bin/python monte_carlo.py prices scripts/my_strategy.py data/BTCUSDT_60.ohlcv --method blocks --block 48
     .venv/bin/python monte_carlo.py prices scripts/my_strategy.py data/BTCUSDT_60.ohlcv --method windows --window 2000
 
@@ -23,8 +24,9 @@ What each method answers:
     bootstrap  trades drawn with replacement: a confidence range of net profit, profit factor, win rate and
                drawdown if future trades come from the same distribution
     --skip P   each trade is dropped with probability P (missed fills, downtime); combines with both
-    noise      every bar's open/high/low/close moved by Gaussian noise scaled to the bar's range (another feed,
-               tick noise): does the edge survive prices that are slightly different?
+    noise      every bar's high/low/close moved by Gaussian noise scaled to the bar's range, the open kept at the
+               noisy previous close plus the original gap (another feed, tick noise): does the edge survive prices
+               that are slightly different? It also adds some volatility; see the reference
     blocks     a synthetic history stitched from random blocks of the real bars (block bootstrap of bar shapes
                relative to the previous close): does it survive a market with the same local behaviour but
                another path?
@@ -181,6 +183,8 @@ def run_trades(args) -> int:
         raise SystemExit("--runs must be >= 1")
     if not 0.0 <= args.skip < 1.0:
         raise SystemExit("--skip must be a fraction in [0, 1), e.g. 0.1 for 10 %")
+    if args.capital is not None and not (math.isfinite(args.capital) and args.capital > 0):
+        raise SystemExit(f"--capital must be a positive amount, got {args.capital:g}")
     trades, capital, currency, notes = load_trades(args.path, args.capital)
     if len(trades) < 2:
         raise SystemExit(f"{len(trades)} closed trade(s): nothing to resample")
@@ -231,15 +235,26 @@ def run_trades(args) -> int:
 # ----------------------------------------------------------------------------- price-path Monte Carlo
 
 def perturb_noise(bars: list, rng: random.Random, scale: float) -> list:
+    """Gaussian noise on high, low and close (standard deviation scale x the bar's range). The open follows the
+    noisy previous close plus the bar's original gap, so a continuous market stays gap-free and a gapped one
+    keeps its gaps; independent noise on the open would put an artificial gap on every bar."""
     out = []
+    prev_orig_close = prev_new_close = None
     for b in bars:
         rng_bar = (b.high - b.low) or abs(b.close) * 1e-4
-        o, h, l, c = (p + rng.gauss(0.0, scale * rng_bar) for p in (b.open, b.high, b.low, b.close))
+        h, l, c = (p + rng.gauss(0.0, scale * rng_bar) for p in (b.high, b.low, b.close))
+        if prev_new_close is None:
+            o = b.open + rng.gauss(0.0, scale * rng_bar)
+        else:
+            o = prev_new_close + (b.open - prev_orig_close)
         hi, lo = max(o, h, l, c), min(o, h, l, c)
-        if lo <= 0:
-            out.append(b)                                  # never produce non-positive prices
+        prev_orig_close = b.close
+        if lo <= 0:                                        # never produce non-positive prices
+            out.append(b)
+            prev_new_close = b.close
             continue
         out.append(b._replace(open=o, high=hi, low=lo, close=c))
+        prev_new_close = c
     return out
 
 
@@ -290,8 +305,12 @@ def run_prices(args) -> int:
         window = args.window or len(bars) // 2
         if not 2 <= window <= len(bars):
             raise SystemExit(f"--window {window}: must be between 2 and the number of bars ({len(bars)})")
-    if args.method == "noise" and args.noise <= 0:
-        raise SystemExit("--noise must be > 0 (a fraction of each bar's high-low range, e.g. 0.1)")
+    try:
+        levels = [float(x) for x in str(args.noise).split(",") if x.strip()]
+    except ValueError:
+        raise SystemExit(f"--noise {args.noise!r}: one number or a comma-separated list, e.g. 0.1 or 0.02,0.05,0.1")
+    if args.method == "noise" and (not levels or any(not (math.isfinite(v) and v > 0) for v in levels)):
+        raise SystemExit("--noise must be > 0 (a fraction of each bar's high-low range, e.g. 0.1 or 0.02,0.05,0.1)")
     if args.method == "blocks" and args.block < 1:
         raise SystemExit("--block must be >= 1 bar")
 
@@ -300,30 +319,46 @@ def run_prices(args) -> int:
             return rb.run_once(script, iter(data), syminfo, inputs=inputs, settings=settings)
 
     t0 = time.monotonic()
-    original = once(bars)
+    try:
+        original = once(bars)
+    except Exception as e:  # noqa: BLE001
+        raise SystemExit(f"the original run (unperturbed data) failed: {type(e).__name__}: {e}\n"
+                         f"fix the script first: run_backtest.py {script} {args.data}")
     if not original.get("is_strategy"):
         raise SystemExit(f"{script.name} is an indicator: prices mode measures trades, run it on a strategy")
-    rows, failed = [], []
-    for i in range(args.runs):
-        rng = random.Random(args.seed + i)
-        if args.method == "noise":
-            data = perturb_noise(bars, rng, args.noise)
-        elif args.method == "blocks":
-            data = perturb_blocks(bars, rng, args.block)
-        else:
-            data = perturb_window(bars, rng, window)
-        try:
-            res = once(data)
-            rows.append({k: res.get(k) for k in ("trades", "net_profit_pct", "profit_factor", "win_rate",
-                                                 "max_drawdown_pct", "avg_trade")} | {"seed": args.seed + i})
-        except Exception as e:  # noqa: BLE001  a script can fail on prices it never saw; count it, go on
-            failed.append(f"seed {args.seed + i}: {type(e).__name__}: {e}")
-        if not args.json and (i + 1) % max(1, args.runs // 10) == 0:
-            print(f"  {i + 1}/{args.runs} runs, {time.monotonic() - t0:.0f} s", file=sys.stderr)
+    if (original.get("trades") or 0) < 2:
+        raise SystemExit(f"the original run has {original.get('trades') or 0} closed trade(s): nothing to compare "
+                         f"(check the inputs, settings and the --from/--to range)")
+    # every run gets its own seed drawn from one generator: --seed 42 and --seed 43 share no runs
+    master = random.Random(args.seed)
+
+    def simulate(make, label: str, extra: dict) -> tuple[list[dict], list[str]]:
+        rows_, failed_ = [], []
+        for i in range(args.runs):
+            run_seed = master.getrandbits(64)
+            try:
+                res = once(make(random.Random(run_seed)))
+                rows_.append(extra | {k: res.get(k) for k in ("trades", "net_profit_pct", "profit_factor", "win_rate",
+                                                              "max_drawdown_pct", "avg_trade")} | {"seed": run_seed})
+            except Exception as e:  # noqa: BLE001  a script can fail on prices it never saw; count it, go on
+                failed_.append(f"run seed {run_seed}: {type(e).__name__}: {e}")
+            if not args.json and (i + 1) % max(1, args.runs // 10) == 0:
+                print(f"  {label}{i + 1}/{args.runs} runs, {time.monotonic() - t0:.0f} s", file=sys.stderr)
+        return rows_, failed_
+
+    keys = ["net_profit_pct", "max_drawdown_pct", "profit_factor", "win_rate", "trades"]
+    if args.method == "noise" and len(levels) > 1:
+        return noise_ladder(args, levels, simulate, bars, original, keys, script, t0)
+
+    if args.method == "noise":
+        rows, failed = simulate(lambda rng: perturb_noise(bars, rng, levels[0]), "", {})
+    elif args.method == "blocks":
+        rows, failed = simulate(lambda rng: perturb_blocks(bars, rng, args.block), "", {})
+    else:
+        rows, failed = simulate(lambda rng: perturb_window(bars, rng, window), "", {})
     if not rows:
         raise SystemExit("every run failed:\n  " + "\n  ".join(failed[:5]))
 
-    keys = ["net_profit_pct", "max_drawdown_pct", "profit_factor", "win_rate", "trades"]
     orig = {k: original.get(k) for k in keys}
     if args.method == "windows":
         orig = {}                                    # a sub-period is not comparable with the full history
@@ -345,7 +380,7 @@ def run_prices(args) -> int:
     result = {
         "mode": "prices", "method": args.method, "runs": args.runs, "ok_runs": len(rows), "seed": args.seed,
         "script": str(script), "data": str(args.data), "bars": len(bars), "period": period,
-        "parameters": {"noise": args.noise} if args.method == "noise" else
+        "parameters": {"noise": levels[0]} if args.method == "noise" else
                       {"block": args.block} if args.method == "blocks" else {"window": window},
         "original": {k: original.get(k) for k in keys}, "metrics": dist, "p_loss_pct": p_loss,
         "dd_limit_pct": args.dd_limit, "p_dd_limit_pct": p_dd, "seconds": round(time.monotonic() - t0, 1),
@@ -356,11 +391,70 @@ def run_prices(args) -> int:
     if args.json:
         print(json.dumps(result, indent=2, default=str))
     else:
-        param = {"noise": f"noise {args.noise} x bar range", "blocks": f"blocks of {args.block} bars",
+        param = {"noise": f"noise {levels[0]} x bar range", "blocks": f"blocks of {args.block} bars",
                  "windows": f"windows of {window} bars"}[args.method]
         title = (f"Monte Carlo: {args.method} ({param}), {len(rows)}/{args.runs} runs on {len(bars)} bars "
                  f"of {Path(args.data).name}, seed {args.seed}, {result['seconds']} s")
         print_report(title, f"script {script.name}", dist, keys, p_loss, args.dd_limit, p_dd, notes, args.method)
+    return 0
+
+
+def noise_ladder(args, levels: list[float], simulate, bars: list, original: dict, keys: list[str], script: Path,
+                 t0: float) -> int:
+    """The same number of noisy runs at several noise levels. Noise itself degrades most strategies (extra
+    volatility, whipsaws), so the useful signal is the shape: a result fitted to the exact prices already drops
+    at the smallest level, a sound one degrades smoothly from the original."""
+    orig = {k: original.get(k) for k in keys}
+    ladder, all_rows, failed_total = [], [], 0
+    for level in levels:
+        rows, failed = simulate(lambda rng, lv=level: perturb_noise(bars, rng, lv), f"noise {level}: ", {"noise": level})
+        failed_total += len(failed)
+        all_rows += rows
+        if not rows:
+            ladder.append({"noise": level, "ok_runs": 0, "failed": len(failed)})
+            continue
+        dist = distribution(rows, orig, keys)
+        ladder.append({
+            "noise": level, "ok_runs": len(rows), "failed": len(failed), "metrics": dist,
+            "p_loss_pct": sum(1 for r in rows if (r["net_profit_pct"] or 0) < 0) / len(rows) * 100.0,
+            "p_dd_limit_pct": sum(1 for r in rows if (r["max_drawdown_pct"] or 0) >= args.dd_limit) / len(rows) * 100.0,
+        })
+    if not all_rows:
+        raise SystemExit("every run failed at every noise level")
+    seconds = round(time.monotonic() - t0, 1)
+    if args.out:
+        write_rows(args.out, all_rows)
+    if args.json:
+        print(json.dumps({"mode": "prices", "method": "noise", "ladder": ladder, "runs_per_level": args.runs,
+                          "seed": args.seed, "script": str(script), "data": str(args.data), "bars": len(bars),
+                          "original": orig, "dd_limit_pct": args.dd_limit, "seconds": seconds}, indent=2, default=str))
+        return 0
+    print(f"Monte Carlo: noise ladder {', '.join(f'{v:g}' for v in levels)} x bar range, {args.runs} runs per level "
+          f"on {len(bars)} bars of {Path(args.data).name}, seed {args.seed}, {seconds} s")
+    print(f"script {script.name}; original: net {fmt(orig['net_profit_pct'], 2)} %, max drawdown "
+          f"{fmt(orig['max_drawdown_pct'], 2)} %, profit factor {fmt(orig['profit_factor'], 2)}, {fmt(orig['trades'], 0)} trades")
+    print(f"{'noise':>7} {'runs':>5} {'net p5':>8} {'median':>8} {'p95':>8} {'rank':>6} {'DD median':>10} "
+          f"{'PF median':>10} {'trades':>7} {'losing':>7}")
+    for row in ladder:
+        if not row["ok_runs"]:
+            print(f"{row['noise']:>7g} {0:>5}   every run failed")
+            continue
+        m = row["metrics"]
+        n, r = m["net_profit_pct"], m["net_profit_pct"]["original_rank_pct"]
+        print(f"{row['noise']:>7g} {row['ok_runs']:>5} {fmt(n['p5'], 2):>8} {fmt(n['p50'], 2):>8} {fmt(n['p95'], 2):>8} "
+              f"{(f'{r:.0f}%' if r is not None else '-'):>6} {fmt(m['max_drawdown_pct']['p50'], 2):>10} "
+              f"{fmt(m['profit_factor']['p50'], 2):>10} {fmt(m['trades']['p50'], 0):>7} {row['p_loss_pct']:>6.0f}%")
+    first = next((row for row in ladder if row["ok_runs"]), None)
+    if first is not None and orig.get("net_profit_pct") is not None:
+        n = first["metrics"]["net_profit_pct"]
+        inside = n["p5"] <= orig["net_profit_pct"] <= n["p95"]
+        print(f"At noise {first['noise']:g} the original net {orig['net_profit_pct']:.2f} % is "
+              + ("inside" if inside else "OUTSIDE") + f" the p5..p95 band ({n['p5']:.2f} .. {n['p95']:.2f}).")
+    print("Read the shape: inside the band at the smallest level and a steady decline as the noise grows is noise "
+          "sensitivity (noise adds volatility and whipsaws); outside the band (above p95) already at the smallest "
+          "level means the result depends on the exact prices.")
+    if failed_total:
+        print(f"! {failed_total} run(s) failed and are left out")
     return 0
 
 
@@ -422,7 +516,8 @@ def main() -> int:
 
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--seed", type=int, default=42, metavar="N",
-                        help="random seed (integer); the same seed gives the same simulations. Default: 42")
+                        help="random seed (integer); the same seed gives the same simulations, another seed shares\n"
+                             "none of them (prices mode draws each run's seed from it; --out lists them). Default: 42")
     common.add_argument("--dd-limit", type=float, default=20.0, metavar="PCT",
                         help="drawdown threshold in percent (float, e.g. 25) for the 'runs reaching ... drawdown'\n"
                              "line. Default: 20")
@@ -460,15 +555,18 @@ def main() -> int:
                     help="a .ohlcv file with its .toml next to it (CSV/JSON/TXT are converted first, as in\n"
                          "run_backtest.py)")
     pr.add_argument("--method", choices=("noise", "blocks", "windows"), default="noise",
-                    help="noise: Gaussian noise on every open/high/low/close, scaled to the bar's range;\n"
+                    help="noise: Gaussian noise on high/low/close scaled to the bar's range, the open kept at the\n"
+                         "noisy previous close plus the original gap;\n"
                          "blocks: a synthetic history from random blocks of real bars (shapes relative to the\n"
                          "previous close, re-chained, original timestamps);\n"
                          "windows: random contiguous sub-periods. Default: noise")
     pr.add_argument("--runs", type=int, default=100, metavar="N",
                     help="number of perturbed runs (integer >= 1); each is a full backtest. Default: 100")
-    pr.add_argument("--noise", type=float, default=0.1, metavar="F",
-                    help="noise: standard deviation as a fraction of each bar's high-low range (float > 0).\n"
-                         "Default: 0.1")
+    pr.add_argument("--noise", default="0.1", metavar="F[,F...]",
+                    help="noise: standard deviation as a fraction of each bar's high-low range (float > 0) on high,\n"
+                         "low and close; the open follows the noisy previous close plus the original gap. Noise adds\n"
+                         "volatility (0.1: return stdev about +3 %%, 0.3: about +23 %%). A comma-separated list\n"
+                         "(e.g. 0.02,0.05,0.1) runs --runs simulations per level and prints a ladder. Default: 0.1")
     pr.add_argument("--block", type=int, default=24, metavar="BARS",
                     help="blocks: block length in bars (integer >= 1); longer keeps more of the trends and\n"
                          "volatility clusters. Default: 24")

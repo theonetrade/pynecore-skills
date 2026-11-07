@@ -23,9 +23,9 @@ python3 <skill>/scripts/monte_carlo.py trades output/my_strategy --sizing compou
 `run_backtest.py`, `<script>_trades.csv` of a standalone run) or the common prefix. The
 statistics CSV next to it (`<prefix>_strat.csv`) supplies the exact initial capital (net profit
 divided by net profit %, which it stores unrounded); without it the capital is estimated from the
-trade CSV's rounded cumulative-percent column (a note says so; `--capital` sets it). The
-synthetic exit row of a position still open at the end (signal `Open`, unrealized profit) is left
-out.
+trade CSV's rounded cumulative-percent column (a note says so; `--capital` sets it, and must be
+positive). The synthetic exit row of a position still open at the end (signal `Open`, unrealized
+profit) is left out.
 
 | Option | Values | Effect |
 |--------|--------|--------|
@@ -43,22 +43,35 @@ out.
 ## 2. Price perturbation (`prices`)
 
 ```bash
-.venv/bin/python <skill>/scripts/monte_carlo.py prices scripts/my_strategy.py data/BTCUSDT_60.ohlcv --runs 100
-.venv/bin/python <skill>/scripts/monte_carlo.py prices scripts/my_strategy.py data/BTCUSDT_60.ohlcv --method blocks --block 48
+.venv/bin/python <skill>/scripts/monte_carlo.py prices scripts/my_strategy.py data/BTCUSDT_60.ohlcv --noise 0.01,0.02,0.05,0.1 --runs 50
+.venv/bin/python <skill>/scripts/monte_carlo.py prices scripts/my_strategy.py data/BTCUSDT_60.ohlcv --method blocks --block 48 --runs 100
 .venv/bin/python <skill>/scripts/monte_carlo.py prices scripts/my_strategy.py data/BTCUSDT_60.ohlcv --method windows --window 3000
 ```
 
 Each run is a full backtest through the same `run_once()` as `run_backtest.py` (same metrics,
 same `--input`, `--setting`, `--from`, `--to`, `--symbol`, `--provider`, `--timezone`); the
 script's log output is silenced, progress goes to stderr. The original data is run first as the
-reference. A run that raises (a script meeting prices it never saw) is counted, left out and
-named in a note.
+reference; if that run fails, or makes fewer than two closed trades, the script stops with a
+message instead of simulating. A perturbed run that raises (a script meeting prices it never
+saw) is counted, left out and named in a note.
+
+Seeds: every run draws its own 64-bit seed from one generator seeded with `--seed`, so the same
+`--seed` repeats the simulations exactly and another `--seed` shares none of them (`--out` lists
+each run's seed, and a ladder's `noise` level).
 
 | `--method` | Parameter | What it generates |
 |------------|-----------|-------------------|
-| `noise` (default) | `--noise F` (default 0.1) | every open/high/low/close plus Gaussian noise with a standard deviation of `F` × the bar's high-low range; high and low re-taken as max/min, timestamps and volume kept. Another feed, tick noise |
+| `noise` (default) | `--noise F` or `F1,F2,...` (default 0.1) | high, low and close plus Gaussian noise with a standard deviation of `F` × the bar's high-low range; the open is the noisy previous close plus the bar's original gap (a 24/7 market stays gap-free, an exchange-session market keeps its gaps exactly); high and low re-taken as max/min; timestamps and volume kept. Several levels run `--runs` simulations each and print a ladder |
 | `blocks` | `--block BARS` (default 24) | a synthetic history: each bar as ratios to the previous close (open, high, low, close), random blocks of consecutive bars drawn with replacement and re-chained from the first close; original timestamps (sessions and time filters keep working), the blocks' volumes. Same local behaviour, another path |
 | `windows` | `--window BARS` (default half the data) | random contiguous sub-periods; the original column stays empty because a sub-period is not comparable with the whole history |
+
+**Noise adds volatility.** Independent noise on the closes adds variance to every bar-to-bar
+return, and noise on high and low widens the average bar. Measured on hourly BTC/USDT (mean of 5
+generated histories): at 0.05 the standard deviation of log returns grows by 0.7 % and the mean
+bar range by 0.8 %; at 0.1 by 2.8 % and 2.7 %; at 0.3 by 23 % and 19 %. Gaps between bars stay
+as in the original (0 % added). Any rule that trades crossings or stop distances therefore gets
+somewhat worse under noise whether or not it is fitted, which is why the ladder below, not a
+single level, is the test.
 
 ## 3. Reading the report
 
@@ -79,8 +92,8 @@ In 95 % of the orders the drawdown stays below 6.50 % (the actual order: 5.34 %,
   closed trades only, drawdown on the closed-trade equity curve, exactly as `run_backtest.py`).
 - **p5 … p95**: percentiles over the simulations (linear interpolation).
 - **rank**: share of simulations at or below the original value; `-` when the method cannot
-  change the metric (net profit under `shuffle`). A drawdown ranked near 0 % or a profit ranked
-  near 100 % means the real history was among the luckiest outcomes: expect worse.
+  change the metric (net profit under `shuffle`). With a few dozen runs a rank moves by 10–20
+  points between seeds; read it together with the p5..p95 band.
 - **Runs losing money / reaching the drawdown limit**: the probabilities a sizing decision needs.
 
 How to act on it:
@@ -91,9 +104,12 @@ How to act on it:
 - **`bootstrap` p5 of net profit above zero** is the minimum for calling an edge robust to which
   trades happened; the share of losing runs is the probability the edge is not there at all
   given this sample.
-- **`noise`**: the median should stay close to the original. An original ranked above ~80–90 %
-  of noisy runs is fitted to the exact prices of this feed (level-based entries, exact
-  round-number stops).
+- **`noise`: run a ladder** (`--noise 0.01,0.02,0.05,0.1`). At the smallest level the original
+  should lie inside the p5..p95 band, and the results should decline steadily as the noise grows:
+  that is noise sensitivity, expected for crossover and stop logic. An original above p95 already
+  at the smallest level depends on the exact prices of this feed (level-based entries, exact
+  round-number stops). Do not judge by the rank at one level: at 0.1 the strategy below ranks
+  94 % although the ladder shows plain noise sensitivity.
 - **`blocks`**: profit in most runs means the rules work on the market's behaviour, not on its
   one historical path. Many losing runs with a profitable original point to a regime or a
   single trend carrying the result.
@@ -102,22 +118,23 @@ How to act on it:
 
 ## 4. Verified (PyneCore 6.12.1, `ema_cross` on hourly BTC/USDT, 10 340 bars, 2025-09 → 2026-11)
 
-The strategy (10 % of equity per entry, ATR stop and target) made 360 closed trades plus one
-open at the end; `run_backtest.py` reported net −4.36 %, max drawdown 534.55 (5.34 %), profit
-factor 0.81.
+The strategy (EMA crossover, ATR stop and target, 10 % of equity per entry) made 360 closed trades
+plus one open at the end; `run_backtest.py` reported net −4.36 %, max drawdown 534.55 (5.34 %),
+profit factor 0.81.
 
 | Test | Result |
 |------|--------|
 | `trades`, shuffle, 1000 runs, fixed | original recomputed: net −4.36 %, drawdown 5.34 % (equal to `run_backtest.py`); drawdown p5/p50/p95 4.49/5.31/6.50 %, original rank 51 %; losing streak p95 18 vs 10; net constant (no rank); open trade left out |
 | `trades`, bootstrap, 2000 runs, compound | net p5/p50/p95 −8.38/−4.36/−0.23 %, 96.0 % of runs losing; drawdown p95 8.90 %, 10.4 % of runs reach 8 % |
 | `trades`, shuffle + `--skip 0.1` | 314–332 trades per run, net p5/p95 −5.17/−2.64 % |
-| `trades` without the statistics CSV | capital estimated 9 995.05 from the rounded cumulative %, with a note; `--capital 10000` exact |
-| `prices --method noise`, 100 runs | 22 s; net p5/p50/p95 −6.24/−4.81/−3.28 %, original rank 74 %; trades 350–365; 100 % losing |
-| `prices --method blocks --block 48`, 100 runs | 21 s; net p5/p95 −7.97/−0.11 %, 96 % losing; drawdown p95 8.80 % |
-| `prices --method windows --window 3000`, 100 runs | 6 s; net p5/p95 −3.86/+0.94 %, 84 % of windows losing |
-| generated bars (`noise`, `blocks` seeds 1–3) | 0 invalid OHLC bars, standard deviation of hourly log returns 0.0042–0.0047 vs 0.0045, timestamps unchanged; block paths end at 45 053, 118 838, 126 010 vs 76 530 |
-| a script that raises on some perturbed runs | 11/20 runs kept, `9 run(s) failed and are left out, e.g. seed 44: RuntimeError ...` |
-| same `--seed` twice | identical JSON |
+| `trades` without the statistics CSV | capital estimated 9 995.05 from the rounded cumulative %, with a note; `--capital 10000` exact; `--capital 0` refused |
+| `prices`, noise ladder 0.01/0.02/0.05/0.1/0.2, 60 runs each, 66 s | net median −4.16/−4.56/−4.75/−5.33/−6.86 %, drawdown median 5.08 → 7.41 %; at 0.01 the original −4.36 % lies inside the band −4.59..−3.79: noise sensitivity, not fitting |
+| `prices --method noise` (0.1), 100 runs, 22 s | net p5/p50/p95 −6.85/−5.50/−4.32 %, original rank 94 %; 100 % of runs losing |
+| `prices --method blocks --block 48`, 100 runs, 21 s | net p5/p50/p95 −7.28/−3.17/+0.67 %, 90 % losing; drawdown p95 8.57 % |
+| `prices --method windows --window 3000`, 100 runs, 6 s | net p5/p95 −3.22/+0.90 %, 73 % of windows losing |
+| generated bars | `noise` and `blocks`: 0 invalid OHLC bars, timestamps unchanged; blocks: standard deviation of log returns 0.0042–0.0046 vs 0.0045, paths ending at 45 053 / 118 838 / 126 010 vs 76 530; noise on a market with 1–3 % gaps every 7th bar: every gap kept to 7e-15 |
+| seeds | `--seed 42` and `--seed 43`, 20 runs each: no shared run seed, no identical run (an earlier version that used seed + i shared 19 of 20); the same seed twice: identical JSON |
+| failures | a script that raises on some perturbed runs: `11/20 runs`, the failures named; a script failing on the original data or a strategy without trades: one-line refusal, exit 1 |
 
 The verdict for this strategy is consistent across all tests: it loses on almost every resampled
 or perturbed history, so the backtest's loss is not bad luck.
@@ -130,10 +147,13 @@ or perturbed history, so the backtest's loss is not bad luck.
   from market regimes are broken up, so clustered losses are under-represented. `blocks` keeps
   local structure inside each block; longer blocks keep more of it.
 - **Sample size.** Below 30 closed trades the percentiles are rough (a note says so); a
-  bootstrap of 20 trades mostly re-describes those 20 trades.
+  bootstrap of 20 trades mostly re-describes those 20 trades. Fewer than 50 price runs per level
+  leave ranks noisy.
 - **Sizing model.** `fixed` replays money P&L; for `percent_of_equity` strategies use
   `--sizing compound`, which replays each trade's return on equity (net profit under `shuffle`
   stays fixed either way; profit factor then varies slightly with the equity at each trade).
+- **Noise is not neutral** (section 2): it adds volatility, so results under noise are biased
+  down for most rules; compare levels, not one level against the original.
 - **`blocks` price levels drift** (45 k to 126 k above): fixed quantities in contracts and
   absolute price thresholds behave differently on another level; prefer percentage sizing and
   relative rules for this test.

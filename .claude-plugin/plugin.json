@@ -14,6 +14,7 @@
     "ccxt",
     "cli",
     "indicator",
+    "monte-carlo",
     "paper-trading",
     "parquet",
     "plugin",

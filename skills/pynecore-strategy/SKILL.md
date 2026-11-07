@@ -177,7 +177,7 @@ with warnings, then check:
 6. Enough trades to mean anything (dozens); result survives neighbouring parameters and another
    period; keep an out-of-sample period untouched when optimizing.
 7. Luck and fragility measured: `scripts/monte_carlo.py trades` (order and choice of trades:
-   size for the shuffle p95 drawdown) and `prices` (noise, block-bootstrapped and windowed
+   size for the shuffle p95 drawdown) and `prices` (a noise ladder, block-bootstrapped and windowed
    histories); see `references/monte-carlo.md`. PyneCore has no Monte Carlo of its own.
 
 Report what was run and what was checked. Never present a syntax check or an unverified
@@ -215,7 +215,7 @@ symptom-to-fix tables.
 | `scripts/run_paper.py` | Paper trading on a live provider stream: warm-up from the candle cache (appended, never rewritten), simulated fills, per-bar lines, `--bars` / `--duration` stop, same overrides and summary as `run_backtest.py` (project interpreter) |
 | `scripts/run_live.py` | Real orders through `pyne run --broker`: preflight (strategy, broker plugin, credentials, sandbox flag, settings `.toml`), dry run unless `--yes`, log file, quarantine resume command surfaced (project interpreter) |
 | `scripts/summarize_backtest.py` | Turn `_strat.csv` + `_trade.csv` into a short report with warnings (stdlib) |
-| `scripts/monte_carlo.py` | Monte Carlo robustness: `trades` resamples a trade CSV (shuffle, bootstrap, `--skip`, fixed or compound sizing; stdlib), `prices` re-runs the strategy on noisy, block-bootstrapped or windowed data (project interpreter); percentiles, original rank, loss and drawdown probabilities, `--json`, `--out` |
+| `scripts/monte_carlo.py` | Monte Carlo robustness: `trades` resamples a trade CSV (shuffle, bootstrap, `--skip`, fixed or compound sizing; stdlib), `prices` re-runs the strategy on noisy (one level or a ladder `--noise 0.01,0.02,0.05`), block-bootstrapped or windowed data (project interpreter); percentiles, original rank, loss and drawdown probabilities, `--json`, `--out` |
 | `scripts/viz_inspect.py` | Digest a `--viz` NDJSON file: plots, dynamic colors, bar range, drawing counts, journal events; `--plot ID`, `--bar I`, `--drawings TYPE`, `--json` (stdlib) |
 | `templates/minimal_cli.py` | Workdir-only strategy (EMA crossover, ATR stop/target, explicit sizing and costs); no bootstrap, runs only via `pyne run` / the IDE |
 | `templates/minimal_cli_indicator.py` | Workdir-only indicator (EMA crossover), the shape of `scripts/demo.py` |
