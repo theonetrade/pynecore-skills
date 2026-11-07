@@ -270,7 +270,8 @@ best = max(results, key=lambda r: r["pnl"])
 Overrides never touch the script's `.toml`. Always sweep **with** realistic commission and
 slippage, keep an untouched out-of-sample period, and prefer a parameter plateau (neighbors are
 also good) over the single best cell. `scripts/run_backtest.py --sweep` does this from the
-command line.
+command line; `scripts/monte_carlo.py prices` re-runs one parameter set on perturbed copies of
+the data through the same `ScriptRunner` path ([monte-carlo.md](monte-carlo.md)).
 
 ## Saving CSV and viz output
 

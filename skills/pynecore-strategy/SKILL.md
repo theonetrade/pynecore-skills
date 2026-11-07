@@ -1,7 +1,7 @@
 ---
 name: pynecore-strategy
 license: MIT
-description: "Design, write, backtest, debug, optimize and deploy trading strategies and indicators as PyneCore (Pyne) Python scripts, and run them through the `pyne` CLI or the `ScriptRunner` API. Use this skill whenever a task involves PyneCore, Pyne code, a `@pyne` docstring, `pynecore.lib`, `ta.*` / `strategy.*` calls in Python, `pyne run`, `.ohlcv` data files, downloading or caching exchange candles through CCXT (Binance, Bybit, ...), paper trading or live broker runs of a Pyne strategy, a PyneCore workdir (`scripts/`, `data/`, `output/`), backtests or parameter sweeps, `request.security` multi-timeframe logic, or FreqTrade integration, even when the user just says \"write me a strategy\", \"backtest this idea\", \"why does my strategy not trade\" or \"add a stop loss\" in a project with PyneCore files. Also covers drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`) with the `--viz` NDJSON format and the semantics of the `strategy.risk.*` rules."
+description: "Design, write, backtest, debug, optimize and deploy trading strategies and indicators as PyneCore (Pyne) Python scripts, and run them through the `pyne` CLI or the `ScriptRunner` API. Use this skill whenever a task involves PyneCore, Pyne code, a `@pyne` docstring, `pynecore.lib`, `ta.*` / `strategy.*` calls in Python, `pyne run`, `.ohlcv` data files, downloading or caching exchange candles through CCXT (Binance, Bybit, ...), paper trading or live broker runs of a Pyne strategy, a PyneCore workdir (`scripts/`, `data/`, `output/`), backtests or parameter sweeps, `request.security` multi-timeframe logic, or FreqTrade integration, even when the user just says \"write me a strategy\", \"backtest this idea\", \"why does my strategy not trade\" or \"add a stop loss\" in a project with PyneCore files. Also covers drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`) with the `--viz` NDJSON format and the semantics of the `strategy.risk.*` rules. Includes Monte Carlo robustness tests (trade resampling and price perturbation), which PyneCore itself lacks."
 ---
 
 # PyneCore strategy development
@@ -176,6 +176,9 @@ with warnings, then check:
    exits at the expected level, `Signal` column shows the intended exit reason).
 6. Enough trades to mean anything (dozens); result survives neighbouring parameters and another
    period; keep an out-of-sample period untouched when optimizing.
+7. Luck and fragility measured: `scripts/monte_carlo.py trades` (order and choice of trades:
+   size for the shuffle p95 drawdown) and `prices` (noise, block-bootstrapped and windowed
+   histories); see `references/monte-carlo.md`. PyneCore has no Monte Carlo of its own.
 
 Report what was run and what was checked. Never present a syntax check or an unverified
 optimization as a validated strategy. See [references/pitfalls.md](references/pitfalls.md) for
@@ -197,6 +200,7 @@ symptom-to-fix tables.
 | `request.security`, lookahead modes, security data, symbol map | `references/multi-timeframe.md` |
 | Live mode, broker plugins, DataFrame bridge, FreqTrade, notifications | `references/live-and-integrations.md` |
 | Entry/exit/sizing/filter/state snippets, validation checklist, archetypes | `references/patterns.md` |
+| Monte Carlo: trade shuffle / bootstrap / skipped trades, price noise / block bootstrap / random windows, reading percentiles and ranks, limits | `references/monte-carlo.md` |
 | Symptom -> cause -> fix tables | `references/pitfalls.md` |
 
 ## 7. Bundled tools and templates
@@ -211,6 +215,7 @@ symptom-to-fix tables.
 | `scripts/run_paper.py` | Paper trading on a live provider stream: warm-up from the candle cache (appended, never rewritten), simulated fills, per-bar lines, `--bars` / `--duration` stop, same overrides and summary as `run_backtest.py` (project interpreter) |
 | `scripts/run_live.py` | Real orders through `pyne run --broker`: preflight (strategy, broker plugin, credentials, sandbox flag, settings `.toml`), dry run unless `--yes`, log file, quarantine resume command surfaced (project interpreter) |
 | `scripts/summarize_backtest.py` | Turn `_strat.csv` + `_trade.csv` into a short report with warnings (stdlib) |
+| `scripts/monte_carlo.py` | Monte Carlo robustness: `trades` resamples a trade CSV (shuffle, bootstrap, `--skip`, fixed or compound sizing; stdlib), `prices` re-runs the strategy on noisy, block-bootstrapped or windowed data (project interpreter); percentiles, original rank, loss and drawdown probabilities, `--json`, `--out` |
 | `scripts/viz_inspect.py` | Digest a `--viz` NDJSON file: plots, dynamic colors, bar range, drawing counts, journal events; `--plot ID`, `--bar I`, `--drawings TYPE`, `--json` (stdlib) |
 | `templates/minimal_cli.py` | Workdir-only strategy (EMA crossover, ATR stop/target, explicit sizing and costs); no bootstrap, runs only via `pyne run` / the IDE |
 | `templates/minimal_cli_indicator.py` | Workdir-only indicator (EMA crossover), the shape of `scripts/demo.py` |

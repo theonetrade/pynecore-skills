@@ -140,7 +140,10 @@ def read_trades(path: Path) -> tuple[list[dict], str]:
 
 
 def trade_derived(trades: list[dict]) -> dict:
-    closed = [t for t in trades if t.get("profit") is not None]
+    # pyne writes a position still open at the end as a synthetic exit row with the signal "Open"
+    # (its profit is unrealized): not a closed trade
+    closed = [t for t in trades if t.get("profit") is not None and (t.get("exit_signal") or "") != "Open"]
+    open_at_end = sum(1 for t in trades if (t.get("exit_signal") or "") == "Open")
     exits: dict[str, int] = {}
     streak = worst = 0
     peak = equity = dd = 0.0
@@ -155,6 +158,7 @@ def trade_derived(trades: list[dict]) -> dict:
     return {
         "closed": closed, "exit_reasons": exits, "max_consecutive_losses": worst,
         "drawdown_from_trades": dd,
+        "open_at_end": open_at_end,
         "first_trade": closed[0]["entry_time"] if closed else None,
         "last_trade": closed[-1]["exit_time"] if closed else None,
     }
@@ -217,7 +221,7 @@ def summary_from_trades(trades: list[dict], currency: str) -> dict:
         "gross_profit": gross_profit, "gross_loss": gross_loss, "commission_paid": None,
         "buy_hold_return": None, "buy_hold_return_pct": None,
         "max_drawdown": d["drawdown_from_trades"], "max_drawdown_pct": None, "max_runup": None, "max_runup_pct": None,
-        "total_trades": len(closed), "open_trades": None,
+        "total_trades": len(closed), "open_trades": d["open_at_end"],
         "winning_trades": len(wins), "losing_trades": len(losses),
         "percent_profitable": (len(wins) / len(closed) * 100) if closed else None,
         "avg_trade": ((gross_profit - gross_loss) / len(closed)) if closed else None, "avg_trade_pct": None,

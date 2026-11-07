@@ -296,7 +296,10 @@ shows the transformed code when a `SyntaxError` from the transformer is unclear.
 6. **Trade count**: at least a few dozen trades before trusting a statistic; one huge trade
    should not carry the result.
 7. **Robustness**: the result survives small parameter changes (sweep neighbours), another
-   period, another symbol. Hold back an out-of-sample period before optimizing.
+   period, another symbol. Hold back an out-of-sample period before optimizing. Measure luck
+   and fragility with `scripts/monte_carlo.py`: `trades` (size for the shuffle p95 drawdown,
+   bootstrap p5 profit above zero) and `prices` (noise, blocks, windows); see
+   [monte-carlo.md](monte-carlo.md).
 8. **Report** what was run (script, data, range, settings) and what was checked, with the
    numbers from the statistics CSV.
 
