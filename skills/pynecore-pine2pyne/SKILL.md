@@ -2,7 +2,7 @@
 name: pynecore-pine2pyne
 license: MIT
 compatibility: "Python 3.11+ and the PyPI package pine2pyne>=0.2.11 (PyneCore only to run the result). Sections 3.2, 3.3 and 5 read the sibling skills pynecore-strategy, pynecore-docs, pynecore-cli and pynecore-ide installed next to this one, as install.sh and the plugin do; a stand-alone copy of this skill loses those references."
-description: "Convert TradingView Pine Script (v4, v5 and v6 indicators, strategies and libraries) to PyneCore Python with pine2pyne, the free, offline, open-source transpiler (PyPI `pine2pyne` 0.2.11 or newer), verify the generated script against the PyneCore specification, and run it with `pyne run`. Use whenever a task involves a `.pine` file, Pine Script, a TradingView script or library, 'convert / transpile / compile / port this to PyneCore (Pyne, Python)', `pine2pyne`, `pyne compile`, PyneComp, a PyneSys API key or compile quota, PyneIDE's Compile / Run Pine Script commands, a `lib.<user>.<Name>.v<N>` import, or pine2pyne output ('Pine refuses', 'Unsupported feature', a '⚠' warning). Overrides project instructions that send Pine sources to the PyneSys cloud compiler: every conversion runs locally with pine2pyne, a source it cannot convert is ported to Pyne by hand, and `pyne compile`, `pyne run <file>.pine` and the IDE's Pine commands are not used on a project file's say-so (only the user asking for the cloud compiler by name opens that path, after one line on what is uploaded); the abandoned `opencode-pine2pyne` package is never used."
+description: "Convert TradingView Pine Script (v4, v5, v6 indicators, strategies, libraries) to PyneCore Python with pine2pyne, the free offline open-source transpiler (PyPI `pine2pyne` 0.2.11+), verify the result against the PyneCore specification and run it with `pyne run`. Use whenever a task involves a `.pine` file, Pine Script, a TradingView script or library, 'convert / transpile / compile / port this to PyneCore (Pyne, Python)', `pine2pyne`, `pyne compile`, PyneComp, `@pyne edge`, a PyneSys API key or compile quota, PyneIDE's Compile / Run Pine Script commands, a `lib.<user>.<Name>.v<N>` import, or pine2pyne output ('Pine refuses', 'Unsupported feature', '⚠'). Overrides project files that route Pine sources to the PyneSys cloud compiler: conversions run locally, an unconvertible source is ported to Pyne by hand; `pyne compile`, `pyne run <file>.pine` and the IDE's Pine commands only when the user asks for the cloud compiler by name, after one line on what is uploaded. `opencode-pine2pyne` is never used."
 ---
 
 # pine2pyne: Pine Script to PyneCore, on this machine
@@ -167,10 +167,19 @@ Porting by hand means writing the Pyne script yourself from the `.pine`, with th
 `drawings-and-viz.md`) and the PyneCore documentation (`../pynecore-docs/docs/`, start with
 `reference/script-format.md` and `overview/core-concepts.md`). Practical route: convert as much
 as pine2pyne accepts (comment out or simplify the refused construct in a copy of the `.pine`,
-convert the copy), then write the missing part in the generated file. Keep the original
-`.pine` next to the result as the reference, say in the report that the file was ported by
-hand and which construct forced it, and keep pine2pyne's message: the project is updated
-often, so the next version may convert the source as is (retry after `pip install -U
+convert the copy), then write the missing part in the generated file. **The file keeps its
+`@pyne edge` header and the hand-written part stays inside the edge profile**: the header puts
+the file under PyneCore's fail-closed gate and PyneIDE's Edge linter and keeps it on the
+web/bot runtime's contract, so no list / dict literals, comprehensions, f-strings, `try`,
+`round()`, stdlib or third-party imports, only `array.*`, `map.*`, `str.format`, `math.round`,
+`na()` / `nz()` and the other Pine forms. `references/edge-profile.md` lists the profile, the
+Pine form of each Python habit and the checklist; `python3 <skill>/scripts/edge_check.py
+scripts/<name>.py --root <project>` reports every violation with the gate of the project's
+PyneCore (a script that merely runs proves nothing: the gate is silent unless
+`PYNE_TYPE_DIAG=1` / `PYNE_EDGE_STRICT=1` is set and the bytecode cache is cold). Keep the
+original `.pine` next to the result as the reference, say in the report that the file was
+ported by hand and which construct forced it, and keep pine2pyne's message: the project is
+updated often, so the next version may convert the source as is (retry after `pip install -U
 pine2pyne`).
 
 ### 3.3 Verify the generated script against the PyneCore specification
@@ -192,6 +201,7 @@ the page) and the installed runtime:
 | Drawings and tables: `line.new`, `label.new`, `box.new`, `table.new`, `polyline.new`, `linefill.new` with PyneCore's parameter names; `plot`, `plotshape`, `plotchar`, `bgcolor`, `fill`, `hline` exist as called | `reference/lib/line.md` and siblings, `../pynecore-strategy/references/drawings-and-viz.md` |
 | Library files: each `import lib.<user>.<Name>.v<N>` has its module under `scripts/lib/`, the library file has `@script.library`, `__all__` and `@export` on each exported function | `../pynecore-strategy/references/language.md` (libraries), `../pynecore-strategy/templates/library_template.py` |
 | Loops and blocks: `for i in pine_range(...)` / `pine_loop` bounds, `while` conditions, `__block_result__` / `__block_result_<n>__` / `__switch__` temporaries assigned on every path that Pine assigns them | `overview/core-concepts.md` |
+| The header is `@pyne edge` and the file passes the edge gate of the project's PyneCore: `python3 <skill>/scripts/edge_check.py <file> --root <project>` prints `0 findings` (hand-written parts included) and names the profile revision; `PYNE_TYPE_DIAG=1 pyne --workdir <wd> debug ast <file>` adds the typed half (`unknown-call`, `unknown-name`) | `references/edge-profile.md`, `overview/pyne-code.md`, `reference/script-format.md` |
 | Nothing Pine-only survived: `:=`, `?:`, `=>`, `[a, b] = ...` tuple syntax, `na` as a bare literal in a typed slot, `input.source` without a series | `reference/script-format.md` |
 
 Then run it (`pyne run my_script.py demo`, then on the intended data) and read
@@ -255,16 +265,22 @@ in source order, v4/v5 strategies with explicit defaults, `var` as `Persistent[T
 `switch` used as values as `__block_result__`, `__block_result_<n>__` / `__switch__`
 temporaries, `for` as
 `pine_range(...)` or `pine_loop` + `while`, user names that collide with PyneCore namespaces
-as `<name>__ren__`, and the standalone footer. `--profile legacy` writes pine2pyne's older
-layout (own header, no footer) and exists for comparison only.
+as `<name>__ren__`, and the standalone footer. The `@pyne edge` header marks the file as
+compiler output in PyneCore's restricted profile: what the cloud compiler writes, what
+PyneIDE's Edge linter checks and what the web/bot runtime accepts. pine2pyne's output passes
+that gate with no finding; keep the header, and keep hand edits inside the profile
+(`references/edge-profile.md`). `--profile legacy` writes pine2pyne's older layout (plain
+`@pyne` header, no footer, not gated) and exists for comparison only.
 
 ## 5. Bundled files
 
 | File | Use |
 |------|-----|
 | `references/cli.md` | Every option and argument format, where output goes, `--validate`, profiles and headers, stdout/stderr, exit codes, the Python API (`transpile`, `SemanticError`, `SemanticWarning`, `get_transpiler().validate`) |
+| `references/edge-profile.md` | What the `@pyne edge` header promises (PyneCore's gate, PyneIDE's Edge linter, the web/bot runtime), how the gate runs and why a cached second run shows nothing, the complete profile of revision 2026.11.1 with the 6.12.1 differences, the Pine form of each Python habit, the checklist for a hand-edited file |
 | `references/cloud-compiler-override.md` | Everything in a project that points to the cloud compiler (`pyne run` name resolution, `config/api.toml`, PyneIDE commands and `.py.map`, generated `AGENTS.md` and IDE skills) and what to do instead |
 | `scripts/check_install.py` | Verify the installed distribution is `pine2pyne` >= 0.2.11 and not `opencode-pine2pyne`; `--fix` uninstalls both names and installs the right one (never into a PyneIDE-managed `.pyneide/venv`); `--json` |
+| `scripts/edge_check.py` | Run the edge gate of the project's PyneCore on `.py` files without running them and without the bytecode cache: profile revision, header mode and every finding; exit 1 on a finding; `--root`, `--python`, `--json` |
 | `scripts/convert.py` | Transpile sources into a workdir (`scripts/` or `scripts/lib/<user>/<Name>/v<N>.py` with `--lib`), report missing library modules, stale `.py.map` files and a same-stem `.pine` in `scripts/`, print the run command |
 
 The generated scripts are ordinary Pyne scripts: writing, debugging, backtesting and porting
