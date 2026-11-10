@@ -13,7 +13,7 @@ installed transpiler is not `pine2pyne` >= 0.2.11.
     python3 convert.py a.pine b.pine --workdir WD                             # -> scripts/a.py, scripts/b.py
     python3 convert.py "src/*.pine" --workdir WD                              # a quoted glob, expanded here
     python3 convert.py KernelFunctions.pine --workdir WD --lib jdehorty/KernelFunctions/2
-                                                                              # -> scripts/lib/jdehorty/KernelFunctions/v2.py
+                                                                  # -> scripts/lib/jdehorty/KernelFunctions/v2.py
     python3 convert.py my_script.pine --workdir WD --name renamed             # output stem
     python3 convert.py my_script.pine --workdir WD --validate                 # checks only, nothing written
     python3 convert.py my_script.pine --workdir WD --pine2pyne /path/to/venv/bin/pine2pyne
@@ -83,12 +83,15 @@ def expand_inputs(patterns: list[str]) -> list[Path]:
     return files
 
 
-def output_path(workdir: Path, src: Path, lib: str | None, name: str | None) -> Path:
+def parse_lib(spec: str) -> tuple[str, str, str] | None:
+    """'jdehorty/KernelFunctions/2' -> ('jdehorty', 'KernelFunctions', '2'); a '-' in the user becomes '_'."""
+    m = LIB_SPEC_RE.match(spec)
+    return (m.group(1).replace("-", "_"), m.group(2), m.group(3)) if m else None
+
+
+def output_path(workdir: Path, src: Path, lib: tuple[str, str, str] | None, name: str | None) -> Path:
     if lib:
-        m = LIB_SPEC_RE.match(lib)
-        if not m:
-            raise SystemExit(f"--lib must be <user>/<Name>/<version> as written in the Pine import line, got: {lib}")
-        user, module, version = m.group(1).replace("-", "_"), m.group(2), m.group(3)
+        user, module, version = lib
         return workdir / "scripts" / "lib" / user / module / f"v{version}.py"
     return workdir / "scripts" / f"{name or src.stem}.py"
 
@@ -105,23 +108,29 @@ def library_status(py_file: Path, workdir: Path) -> list[tuple[str, Path, bool]]
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        description="Transpile Pine sources into a PyneCore workdir with the local pine2pyne and report what the result needs.",
+        description="Transpile Pine sources into a PyneCore workdir with the local pine2pyne "
+                    "and report what the result needs.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__.split("Standard library only.")[0].strip())
     ap.add_argument("inputs", nargs="+", metavar="INPUT",
-                    help="Pine source file paths, or quoted glob patterns (`\"src/*.pine\"`, `\"**/*.pine\"`) expanded by this script")
+                    help="Pine source file paths, or quoted glob patterns (`\"src/*.pine\"`, `\"**/*.pine\"`) "
+                         "expanded by this script")
     ap.add_argument("--workdir", metavar="DIR",
-                    help="the PyneCore workdir (holds .pyne, scripts/, data/); default: the current folder or its workdir/ child when one has the .pyne marker")
+                    help="the PyneCore workdir (holds .pyne, scripts/, data/); default: the current folder "
+                         "or its workdir/ child when one has the .pyne marker")
     ap.add_argument("--lib", metavar="USER/NAME/N",
-                    help="the input is a library: write it to scripts/lib/<USER with - as _>/<NAME>/v<N>.py; USER/NAME/N exactly as in the Pine `import` line (one input only)")
-    ap.add_argument("--name", metavar="STEM", help="output file stem for a single non-library input (default: the input's stem)")
+                    help="the input is a library: write it to scripts/lib/<USER with - as _>/<NAME>/v<N>.py; "
+                         "USER/NAME/N exactly as in the Pine `import` line (one input only)")
+    ap.add_argument("--name", metavar="STEM",
+                    help="output file stem for a single non-library input (default: the input's stem)")
     ap.add_argument("--profile", choices=("pynecomp", "legacy"), default="pynecomp",
                     help="pine2pyne output profile (default: pynecomp)")
     ap.add_argument("--validate", action="store_true", help="run pine2pyne --validate on each input; write nothing")
     ap.add_argument("--pine2pyne", metavar="PATH",
                     help="path of the pine2pyne command (default: a project venv next to the workdir, then PATH)")
     ap.add_argument("--skip-install-check", action="store_true",
-                    help="do not verify the distribution/version first (only for environments already checked in this session)")
+                    help="do not verify the distribution/version first "
+                         "(only for environments already checked in this session)")
     args = ap.parse_args(argv)
 
     workdir = find_workdir(args.workdir)
@@ -130,6 +139,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if (args.lib or args.name) and len(args.inputs) != 1:
         print("--lib and --name take exactly one input", file=sys.stderr)
+        return 2
+    lib = parse_lib(args.lib) if args.lib else None
+    if args.lib and lib is None:
+        print(f"--lib must be <user>/<Name>/<version> as written in the Pine import line, got: {args.lib}",
+              file=sys.stderr)
         return 2
     try:
         inputs = expand_inputs(args.inputs)
@@ -142,8 +156,8 @@ def main(argv: list[str] | None = None) -> int:
 
     exe, owner = find_pine2pyne(args.pine2pyne, workdir)
     if exe is None:
-        print("pine2pyne command not found: install it (`pip install \"pine2pyne>=0.2.11\"` or `uv tool install \"pine2pyne>=0.2.11\"`) "
-              "or pass --pine2pyne PATH", file=sys.stderr)
+        print("pine2pyne command not found: install it (`pip install \"pine2pyne>=0.2.11\"` or "
+              "`uv tool install \"pine2pyne>=0.2.11\"`) or pass --pine2pyne PATH", file=sys.stderr)
         return 1
     if not args.skip_install_check:
         if owner is None:
@@ -154,7 +168,7 @@ def main(argv: list[str] | None = None) -> int:
         state, why = check_install.verdict(info)
         if state != "ok":
             print(f"installed transpiler rejected: {why}", file=sys.stderr)
-            for c in check_install.repair_commands(owner, info):
+            for c in check_install.repair_commands(owner, info, check_install.is_managed(owner)):
                 print("  " + " ".join(c), file=sys.stderr)
             return 1
         print(f"pine2pyne {info['pine2pyne']} at {exe}", flush=True)  # before the subprocess output
@@ -162,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     failed = 0
     written: list[Path] = []
     for src in inputs:
-        out = output_path(workdir, src, args.lib, args.name)
+        out = output_path(workdir, src, lib, args.name)
         cmd = [str(exe), str(src), "--profile", args.profile]
         if args.validate:
             cmd.append("--validate")
@@ -180,15 +194,17 @@ def main(argv: list[str] | None = None) -> int:
         if out.parent == workdir / "scripts":
             pine_twin = out.with_suffix(".pine")
             if pine_twin.is_file():
-                print(f"note: {pine_twin.name} sits next to {out.name}: run it as `pyne run {out.name} <data>` (with the suffix), "
-                      f"a bare `{stem}` resolves to the .pine and the cloud compiler")
+                print(f"note: {pine_twin.name} sits next to {out.name}: run it as `pyne run {out.name} <data>` "
+                      f"(with the suffix), a bare `{stem}` resolves to the .pine and the cloud compiler")
             map_file = out.parent / f"{out.name}.map"
             if map_file.is_file():
-                print(f"note: {map_file.name} is a cloud-compile source map; it is stale now and ignored by PyneIDE (leave it)")
+                print(f"note: {map_file.name} is a cloud-compile source map; "
+                      f"it is stale now and ignored by PyneIDE (leave it)")
         for module, path, exists in library_status(out, workdir):
             rel = path.relative_to(workdir)
-            print(f"{'ok     ' if exists else 'MISSING'} {module} -> {rel}" + ("" if exists else
-                  f"   (transpile the library source: convert.py <Lib>.pine --workdir {workdir} --lib <user>/<Name>/<N>)"))
+            hint = "" if exists else (f"   (transpile the library source: "
+                                      f"convert.py <Lib>.pine --workdir {workdir} --lib <user>/<Name>/<N>)")
+            print(f"{'ok     ' if exists else 'MISSING'} {module} -> {rel}{hint}")
     if written and not args.validate:
         scripts = [w for w in written if w.parent == workdir / "scripts"]
         if scripts:

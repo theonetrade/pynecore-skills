@@ -8,8 +8,11 @@ uninstall both distribution names, then install `pine2pyne>=0.2.11`.
 
 Standard library only. Reads package metadata through the environment's own interpreter
 (`importlib.metadata`); the transpiler module is imported only after the verdict is OK.
+A PyneIDE-managed `.pyneide/venv` is inspected when it already holds the command, but `--fix`
+never installs into it (the pynecore-ide skill explains why); the same holds when no project
+environment is found at all. The repair then names a tool install (`uv tool` / `pipx`) instead.
 
-    python3 check_install.py                          # the environment that owns `pine2pyne` on PATH (or the project venv)
+    python3 check_install.py                          # the environment owning `pine2pyne` on PATH, or a project venv
     python3 check_install.py --root /path/to/project  # look for .venv, venv, env, .pyneide/venv under that folder first
     python3 check_install.py --python /path/to/venv/bin/python   # inspect exactly that interpreter
     python3 check_install.py --fix                    # run the repair commands (uv pip or pip) in that environment
@@ -32,11 +35,15 @@ from pathlib import Path
 RIGHT = "pine2pyne"
 WRONG = "opencode-pine2pyne"
 MIN_VERSION = (0, 2, 11)
+SPEC = f"{RIGHT}>={'.'.join(map(str, MIN_VERSION))}"
 PYPI_RIGHT = "https://pypi.org/project/pine2pyne"
 PYPI_WRONG = "https://pypi.org/project/opencode-pine2pyne/"
-VENV_CANDIDATES = (".venv", "venv", "env", os.path.join(".pyneide", "venv"))
+MANAGED_VENV = os.path.join(".pyneide", "venv")  # PyneIDE-managed: inspected, never installed into
+VENV_CANDIDATES = (".venv", "venv", "env", MANAGED_VENV)
 BIN_DIRS = ("bin", "Scripts")
 PYTHON_NAMES = ("python", "python3", "python.exe")
+# a python path in a shebang or in uv's `#!/bin/sh` relaunch header: '''exec' '<python>' "$0" "$@"
+PYTHON_IN_LINE = re.compile(r"'([^']*python[^']*)'|\"([^\"]*python[^\"]*)\"|(\S*python\S*)")
 
 PROBE = r"""
 import importlib.metadata as m, json, sys
@@ -61,29 +68,42 @@ def version_tuple(text: str) -> tuple[int, ...]:
 
 
 def interpreter_of_script(script: Path) -> Path | None:
-    """The interpreter that owns a console script: the python next to it (venv and uv-tool layouts;
-    uv writes a `#!/bin/sh` relaunch shebang), else a python named by its shebang."""
-    for name in PYTHON_NAMES:
-        py = script.parent / name
-        if py.is_file():
-            return py
+    """The interpreter that owns a console script: the python next to the file the script resolves to
+    (`uv tool install` links ~/.local/bin/pine2pyne into the tool environment), else next to the
+    script itself, else the python named in its first two lines (a shebang, or uv's `#!/bin/sh`
+    relaunch header, written when the path is too long for a direct shebang)."""
+    for base in (script.resolve().parent, script.parent):
+        for name in PYTHON_NAMES:
+            py = base / name
+            if py.is_file():
+                return py
     try:
-        first = script.open("rb").readline().decode("utf-8", "replace").strip()
+        with script.open("rb") as fh:
+            head = [fh.readline().decode("utf-8", "replace").strip() for _ in range(2)]
     except OSError:
-        first = ""
-    if first.startswith("#!"):
-        words = first[2:].split()
-        cand = Path(words[-1]) if words and "python" in words[-1] else None
-        if cand and cand.is_file():
-            return cand
+        return None
+    if not head[0].startswith("#!"):
+        return None
+    for line in head:
+        line = line[2:] if line.startswith("#!") else line
+        for groups in PYTHON_IN_LINE.findall(line):
+            cand = Path(next(g for g in groups if g))
+            if cand.is_file():
+                return cand
     return None
+
+
+def is_managed(python: Path) -> bool:
+    """A PyneIDE-managed environment (.pyneide/venv): inspected, never changed by --fix."""
+    parts = python.parts
+    return any(parts[i] == ".pyneide" and parts[i + 1] == "venv" for i in range(len(parts) - 1))
 
 
 def find_python(root: Path, explicit: Path | None) -> tuple[Path | None, str]:
     """Pick the interpreter to inspect; returns (path, how it was chosen)."""
     if explicit:
         return (explicit if explicit.is_file() else None), f"--python {explicit}"
-    for name in VENV_CANDIDATES:
+    for name in VENV_CANDIDATES:  # a project venv that already holds the command, the managed one included
         for bin_dir in BIN_DIRS:
             for py in PYTHON_NAMES:
                 cand = root / name / bin_dir / py
@@ -101,7 +121,9 @@ def find_python(root: Path, explicit: Path | None) -> tuple[Path | None, str]:
                 cand = Path(active) / bin_dir / py
                 if cand.is_file():
                     return cand, f"VIRTUAL_ENV {active}"
-    for name in VENV_CANDIDATES:
+    for name in VENV_CANDIDATES:  # a project venv without the command; never the managed one (--fix would land there)
+        if name == MANAGED_VENV:
+            continue
         for bin_dir in BIN_DIRS:
             for py in PYTHON_NAMES:
                 cand = root / name / bin_dir / py
@@ -114,7 +136,7 @@ def probe(python: Path) -> dict:
     try:
         r = subprocess.run([str(python), "-I", "-c", PROBE], capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise SystemExit(f"cannot run {python}: {exc}")
+        raise SystemExit(f"cannot run {python}: {exc}") from exc
     if r.returncode != 0:
         raise SystemExit(f"{python} failed to report its packages:\n{r.stderr.strip()}")
     return json.loads(r.stdout)
@@ -124,9 +146,11 @@ def verdict(info: dict) -> tuple[str, str]:
     """('ok' | 'wrong-package' | 'wrong-version' | 'missing', explanation)."""
     right, wrong, providers = info.get(RIGHT), info.get(WRONG), info.get("providers")
     if wrong:
-        return "wrong-package", (f"{WRONG} {wrong} is installed ({PYPI_WRONG}); it is the abandoned line of the project "
-                                 f"and shares the import package and the `pine2pyne` command with {RIGHT}"
-                                 + (f"; {RIGHT} {right} is installed beside it and its files are mixed with the old ones" if right else ""))
+        why = (f"{WRONG} {wrong} is installed ({PYPI_WRONG}); it is the abandoned line of the project "
+               f"and shares the import package and the `pine2pyne` command with {RIGHT}")
+        if right:
+            why += f"; {RIGHT} {right} is installed beside it and its files are mixed with the old ones"
+        return "wrong-package", why
     if providers and any(p != RIGHT for p in providers):
         return "wrong-package", f"the import package `pine2pyne` is provided by {providers}, not only by {RIGHT}"
     if not right:
@@ -137,20 +161,23 @@ def verdict(info: dict) -> tuple[str, str]:
     return "ok", f"{RIGHT} {right}"
 
 
-def repair_commands(python: Path, info: dict) -> list[list[str]]:
+def repair_commands(python: Path, info: dict, elsewhere: bool = False) -> list[list[str]]:
     """Uninstall both names (only the installed ones), then install the right one; uv pip when uv exists
-    (uv-created environments have no pip), else python -m pip."""
-    present = [d for d in (WRONG, RIGHT) if info.get(d)]
+    (uv-created environments have no pip), else python -m pip. With `elsewhere` (a PyneIDE-managed
+    environment, or no project environment at all) the repair is a tool install (uv or pipx) instead."""
     uv = shutil.which("uv")
+    if elsewhere:
+        return [[uv, "tool", "install", SPEC] if uv else ["pipx", "install", SPEC]]
+    present = [d for d in (WRONG, RIGHT) if info.get(d)]
     cmds: list[list[str]] = []
     if uv:
         if present:
             cmds.append([uv, "pip", "uninstall", "--python", str(python), *present])
-        cmds.append([uv, "pip", "install", "--python", str(python), f"{RIGHT}>={'.'.join(map(str, MIN_VERSION))}"])
+        cmds.append([uv, "pip", "install", "--python", str(python), SPEC])
     else:
         if present:
             cmds.append([str(python), "-m", "pip", "uninstall", "-y", *present])
-        cmds.append([str(python), "-m", "pip", "install", f"{RIGHT}>={'.'.join(map(str, MIN_VERSION))}"])
+        cmds.append([str(python), "-m", "pip", "install", SPEC])
     return cmds
 
 
@@ -170,12 +197,15 @@ def main(argv: list[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__.split("Standard library only.")[0].strip())
     ap.add_argument("--root", metavar="DIR", default=".",
-                    help="project folder searched for .venv, venv, env or .pyneide/venv (default: the current directory)")
-    ap.add_argument("--python", metavar="PATH", help="absolute or relative path of the interpreter whose environment to inspect "
-                                                     "(overrides --root and the PATH lookup)")
+                    help="project folder searched for .venv, venv, env or .pyneide/venv "
+                         "(default: the current directory)")
+    ap.add_argument("--python", metavar="PATH",
+                    help="absolute or relative path of the interpreter whose environment to inspect "
+                         "(overrides --root and the PATH lookup)")
     ap.add_argument("--fix", action="store_true",
-                    help=f"run the repair: uninstall {WRONG} and {RIGHT} (those present), then install {RIGHT}>="
-                         f"{'.'.join(map(str, MIN_VERSION))}; uses `uv pip --python` when uv is on PATH, else `python -m pip`")
+                    help=f"run the repair: uninstall {WRONG} and {RIGHT} (those present), then install {SPEC}; "
+                         f"uses `uv pip --python` when uv is on PATH, else `python -m pip`; "
+                         f"refuses a PyneIDE-managed .pyneide/venv and a bare system interpreter")
     ap.add_argument("--json", action="store_true", help="print the verdict as one JSON object instead of text")
     args = ap.parse_args(argv)
 
@@ -187,9 +217,21 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     info = probe(python)
     state, why = verdict(info)
-    cmds = repair_commands(python, info) if state != "ok" else []
+    managed = is_managed(python)
+    no_env = how.startswith("this interpreter")  # no venv with the command, nothing active: not a target
+    elsewhere = managed or no_env
+    cmds = repair_commands(python, info, elsewhere) if state != "ok" else []
 
     if args.fix and state != "ok":
+        if elsewhere:
+            reason = ("a PyneIDE-managed environment" if managed
+                      else "not a project environment (no venv holding the pine2pyne command was found)")
+            print(f"{python} is {reason}; --fix leaves it as it is. Install the transpiler as a tool "
+                  f"or into the project's own venv, then check that interpreter with --python:",
+                  file=sys.stderr)
+            for cmd in cmds:
+                print("  " + " ".join(cmd), file=sys.stderr)
+            return 1
         for cmd in cmds:
             print("+ " + " ".join(cmd), file=sys.stderr)
             r = subprocess.run(cmd)
@@ -202,6 +244,7 @@ def main(argv: list[str] | None = None) -> int:
 
     cmd_version = command_version(python) if state == "ok" else None
     result = {"python": info["python"], "python_version": info["python_version"], "chosen": how,
+              "managed": managed,
               "pine2pyne": info.get(RIGHT), "opencode-pine2pyne": info.get(WRONG), "providers": info.get("providers"),
               "command_version": cmd_version, "state": state, "why": why,
               "repair": [" ".join(c) for c in cmds]}
@@ -209,13 +252,20 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=1))
     else:
         print(f"interpreter : {result['python']} (Python {result['python_version']}; {how})")
-        print(f"pine2pyne   : {result['pine2pyne'] or 'not installed'}   {WRONG}: {result['opencode-pine2pyne'] or 'not installed'}")
+        print(f"pine2pyne   : {result['pine2pyne'] or 'not installed'}   "
+              f"{WRONG}: {result['opencode-pine2pyne'] or 'not installed'}")
         print(f"providers of the `pine2pyne` package: {result['providers']}")
         if cmd_version:
             print(f"command     : {cmd_version}")
         print(f"verdict     : {state.upper()} - {why}")
         if cmds:
-            print("repair (run with --fix, or by hand):")
+            if managed:
+                print("install elsewhere (this PyneIDE-managed environment is left as it is):")
+            elif no_env:
+                print("install as a tool or into a project venv (no project environment found; "
+                      "--fix does not touch this interpreter):")
+            else:
+                print("repair (run with --fix, or by hand):")
             for c in cmds:
                 print("  " + " ".join(c))
             print(f"install only {RIGHT} ({PYPI_RIGHT}); never {WRONG}.")

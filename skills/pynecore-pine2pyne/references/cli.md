@@ -28,7 +28,8 @@ pine2pyne [-h] [-o OUTPUT] [--validate] [--profile {pynecomp,legacy}] [-v] [--ve
 | `pine2pyne a.pine -o out/a.py` | `out/a.py`; missing parent directories are created; stdout: `✓ a.pine → out/a.py` |
 | `pine2pyne a.pine -o existing_dir` | `existing_dir/a.py` (one input, `-o` is an existing directory) |
 | `pine2pyne a.pine b.pine -o out/` | `out/a.py`, `out/b.py`; a missing `out` is created as a directory, **even when its name ends in `.py`** |
-| `pine2pyne "src/*.pine" -o out/` | One `<stem>.py` per match |
+| `pine2pyne "src/*.pine" -o out/` (two or more matches, or `out` exists) | One `<stem>.py` per match |
+| `pine2pyne "src/*.pine" -o out/` with **one** match and no `out` yet | A single match is a single input, so the one-input rule applies: the code is written to a **file** named `out` (the trailing slash is ignored). `mkdir -p out` first, or give a file path |
 | `pine2pyne a.pine b.pine -o existing_file.py` | `Error: Multiple input files require output to be a directory`, exit 1, nothing processed |
 
 The output name is always `<input stem>.py`; an input with no extension or another extension
@@ -94,13 +95,19 @@ README; `pine2pyne --help` of 0.2.11 shows it.)
 
 Warnings are Python `UserWarning`s of class `pine2pyne.SemanticWarning`, printed by the CLI as
 `⚠ <file>:<line>:<col>: <message> [<code>]`; the file is still written and the exit code stays
-0. The standard filters apply to the whole process:
+0. The standard filters apply to the whole process, by action only:
 
 ```bash
 PYTHONWARNINGS=error  pine2pyne s.pine -o s.py   # a warning becomes "Pine refuses: <text> (a warning, made an error by the warning filters) [<code>]", exit 1
-PYTHONWARNINGS=ignore pine2pyne s.pine -o s.py   # nothing printed
-python -W ignore::pine2pyne.errors.SemanticWarning -m pine2pyne s.pine -o s.py   # only pine2pyne's warnings silenced
+PYTHONWARNINGS=ignore pine2pyne s.pine -o s.py   # nothing printed (every warning of the process)
 ```
+
+A filter that names the class (`-W ignore::pine2pyne.SemanticWarning`,
+`PYTHONWARNINGS=ignore::pine2pyne.errors.SemanticWarning`) is rejected with `Invalid -W option
+ignored: invalid module name`: Python resolves the category of a `-W` option before
+`site-packages` is on `sys.path`, so no third-party class can be named there (verified on
+Python 3.13). To silence or collect only pine2pyne's warnings use the Python API below
+(`warnings.simplefilter("ignore", SemanticWarning)` inside `catch_warnings`).
 
 A refused file reports its error only; its warnings are not printed. The parser also emits
 plain Python warnings (not `SemanticWarning`) for a decorator argument given twice or a
@@ -114,7 +121,7 @@ import warnings
 
 source = open("my_script.pine", encoding="utf-8").read()
 with warnings.catch_warnings(record=True) as caught:
-    warnings.simplefilter("always")
+    warnings.simplefilter("always")               # or simplefilter("ignore", SemanticWarning) to drop only these
     try:
         code = transpile(source)                      # str; '' for a comment-only source
         # transpile(source, profile="legacy") for the other layout
