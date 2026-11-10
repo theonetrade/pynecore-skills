@@ -103,7 +103,7 @@ failing line in Problems and open it.
 | `pyneide.chart.colorScheme` | `"classic"` | Up/down colors |
 | `pyneide.chart.priceScale` | `"normal"` | `normal`, log or percent; chart buttons write it |
 | `pyneide.reportProblem.includeLogs` | `true` | Attach sanitized logs to a report |
-| `pyneide.strictCompile`, `pyneide.apiBaseUrl` and the language-server group of settings | | Only relevant to the cloud compiler service for scripts in another language and to its language server; not needed for Pyne scripts |
+| `pyneide.strictCompile`, `pyneide.apiBaseUrl` and the language-server group of settings | | Only relevant to the cloud compiler service for scripts in another language and to its language server; not needed for Pyne scripts. Those scripts are converted locally with `pine2pyne` and the IDE's compile / run / debug commands for them are not used (`../../pynecore-pine2pyne/references/cloud-compiler-override.md` lists the command ids) |
 
 Workspace `.vscode/settings.json` written by Initialize Pyne Project (abridged):
 

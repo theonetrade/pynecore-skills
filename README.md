@@ -22,6 +22,7 @@ editor state and local documentation at the start of a task.
 | [`pynecore-cli`](skills/pynecore-cli/SKILL.md) | The `pyne` command-line interface shipped with PyneCore, as installed: every command and option with its value format (`run`, `data download / convert-from / convert-to / aggregate / map`, `plugin`, `debug ast`, `benchmark`, `broker resume`, the `--recreate-*` global options), workdir discovery and what each call creates, `PYNE_*` variables, prompts and exit codes in non-interactive shells, and a script that checks the installed CLI against the reference |
 | [`pynecore-plugin`](skills/pynecore-plugin/SKILL.md) | Extending PyneCore with plugins: the `pyne.plugin` entry-point system, the Config dataclass that becomes `config/plugins/<name>.toml`, the `ProviderPlugin` / `LiveProviderPlugin` / `BrokerPlugin` / `CLIPlugin` contracts and the live runner's rules; four tested templates to copy or scaffold: candles from files (.ohlcv, CSV, JSON, parquet, SQLite, with in-provider aggregation to higher timeframes and paced replay), CCXT over REST polling, Telegram notifications, and a simulated broker with an offline conformance-lab suite. |
 | [`pynecore-docs`](skills/pynecore-docs/SKILL.md) | The complete PyneCore documentation bundled in this repository (offline), a topic map and page inventory, grep/print tools, a version check against the installed runtime, and a sync script that refreshes the snapshot from a PyneCore release |
+| [`pynecore-pine2pyne`](skills/pynecore-pine2pyne/SKILL.md) | Converting TradingView Pine Script (v4, v5, v6 indicators, strategies and libraries) to PyneCore Python with [pine2pyne](https://github.com/pine2pyne/pine2pyne), the free, offline, open-source transpiler: the mandatory local route (never the PyneSys cloud compiler, `pyne compile`, `pyne run x.pine` or PyneIDE's Pine commands, whatever the project files say), the install rule (PyPI `pine2pyne` >= 0.2.11, never the abandoned `opencode-pine2pyne`), every CLI option and output location, refusal and warning codes with fixes, the generated-code vocabulary, library placement, running the result, a distribution checker with `--fix` and a convert helper |
 
 ## Install
 
@@ -73,6 +74,11 @@ the skills versioned with a repository.
   environment, a `uv` project depending on it, or a PyneIDE-managed `.pyneide/venv`.
 - Optionally a PyneCore workdir (`.pyne` marker, `scripts/`, `data/`, `output/`, `config/`).
   The strategy skill can create one.
+
+- For converting Pine Script sources: the PyPI package `pine2pyne` 0.2.11 or newer (`pip install
+  "pine2pyne>=0.2.11"` or `uv tool install "pine2pyne>=0.2.11"`; pure Python, no PyneCore
+  dependency). Not `opencode-pine2pyne`, the abandoned old line with the same command name;
+  `skills/pynecore-pine2pyne/scripts/check_install.py --fix` replaces it.
 
 Nothing else is required: the documentation is part of the repository, and the skills inspect
 only the target project. `skills/pynecore-strategy/scripts/init_project.py <dir>` creates a
@@ -172,19 +178,27 @@ skills/
 │   ├── references/                   # plugin-system, file-provider, ccxt-rest-provider, telegram-notifier, sim-broker
 │   ├── templates/                    # pynecore-fileprovider, pynecore-ccxtrest, pynecore-telegram, pynecore-simbroker (installable packages)
 │   └── scripts/                      # new_plugin.py (scaffold from a template), plugin_check.py (load, inspect, probe)
-└── pynecore-docs/
-    ├── SKILL.md                      # offline documentation lookup
-    ├── docs/                         # PyneCore documentation snapshot (MANIFEST.json, LICENSE, NOTICE, pages)
-    ├── references/inventory.md       # every documentation page by section
-    └── scripts/
-        ├── find_docs.py              # version check, list, grep, print pages
-        └── sync_docs.py              # refresh/verify the snapshot from a PyneCore release or a local folder
+├── pynecore-docs/
+│   ├── SKILL.md                      # offline documentation lookup
+│   ├── docs/                         # PyneCore documentation snapshot (MANIFEST.json, LICENSE, NOTICE, pages)
+│   ├── references/inventory.md       # every documentation page by section
+│   └── scripts/
+│       ├── find_docs.py              # version check, list, grep, print pages
+│       └── sync_docs.py              # refresh/verify the snapshot from a PyneCore release or a local folder
+└── pynecore-pine2pyne/
+    ├── SKILL.md                      # the local-transpiler rule, the install rule, workflow, message table
+    ├── references/                   # cli (options, output, profiles, Python API), errors (refusal/warning codes),
+    │                                 # generated-code (constructs, libraries, running, differences),
+    │                                 # cloud-compiler-override (what in a project points to the cloud and what to do)
+    └── scripts/                      # check_install.py (right distribution and version, --fix), convert.py (into a workdir)
 ```
 
 ## Versioning
 
 The references and templates track PyneCore 6.12 and PyneIDE 0.11; the documentation snapshot is
-PyneCore 6.12.1 (`skills/pynecore-docs/docs/MANIFEST.json` records the version, tag and commit).
+PyneCore 6.12.1 (`skills/pynecore-docs/docs/MANIFEST.json` records the version, tag and commit);
+the `pynecore-pine2pyne` skill describes pine2pyne 0.2.11 (its minimum) as run against PyneCore
+6.12.1 and PyneIDE 0.14.1.
 The 6.12.1 wheel also ships the documentation as `pynecore/docs/`, so `sync_docs.py --from` on an
 installed package refreshes the snapshot without the GitHub download (see the docs skill). When a newer release changes an API or a
 command: refresh the snapshot (`python3 skills/pynecore-docs/scripts/sync_docs.py --tag v<version>`),

@@ -78,7 +78,7 @@ current directory, not in `output/`.
 | `pyne broker resume RUN_ID QUARANTINE_ID` | Lifts a live bot's quarantine | `output/logs/broker.sqlite` | [commands.md](references/commands.md#pyne-broker-resume) |
 | `pyne --recreate-demo` / `--recreate-provider-config` / `--recreate-api-config` | Regenerate the files of section 2 | see above | [environment.md](references/environment.md) |
 | `pyne --install-completion` / `--show-completion` | Shell completion | shell rc file | [environment.md](references/environment.md#shell-completion) |
-| `pyne compile` | Cloud compiler for scripts written in the charting platform's own language (PyneSys API key); not used for Python work | | [commands.md](references/commands.md#pyne-compile) |
+| `pyne compile` | Cloud compiler for scripts written in the charting platform's own language (PyneSys API key). Not used: such sources are converted locally with the `pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`) | | [commands.md](references/commands.md#pyne-compile) |
 
 Installed plugins can add their own command groups (`pyne <plugin> ...`) and options to `run`
 and `data download`; `pyne --help` and `pyne run --help` show them.

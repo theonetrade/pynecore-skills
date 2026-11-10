@@ -59,7 +59,8 @@ and only then replaces `docs/`, so removed pages do not linger and a failed down
 old snapshot intact. It refuses a `--dest` that is not empty and holds no `MANIFEST.json`, and a
 `--from` that is the destination or nested with it.
 Two pages about converting scripts written in another language through a cloud compiler are
-left out by default (`--keep-all` includes them); they are not relevant to Python work.
+left out by default (`--keep-all` includes them); such conversions are done locally with the
+`pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`), which documents its own tool.
 
 ## 3. Read only what the task needs
 

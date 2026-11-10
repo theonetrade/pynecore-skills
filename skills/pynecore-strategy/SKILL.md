@@ -232,3 +232,8 @@ symptom-to-fix tables.
 Templates are tested against PyneCore 6.12. When the installed version differs, check
 `pyne run --help` and `runner.script.settable_fields()` before using a setting or flag you have
 not seen in this skill.
+
+A script that arrives as a `.pine` source (the charting platform's language) is first converted
+to a Pyne script with the local `pine2pyne` transpiler, never through the cloud compiler; that
+is the `pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`). The generated `.py` is
+then an ordinary script for everything in this skill.
