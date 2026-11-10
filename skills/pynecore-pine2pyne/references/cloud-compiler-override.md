@@ -47,13 +47,12 @@ Python 3.11+ environment and call it by path.
   (PyneIDE readme, privacy section).
 - Deterministic and scriptable: a batch of a thousand sources runs in minutes
   (`pine2pyne "src/*.pine" -o out/`), in CI, offline.
-- Coverage: on pine2pyne 0.2.11 the whole reference corpus (1005 sources the cloud compiler had
-  compiled: 471 indicators, 449 strategies, 85 libraries) transpiles with 0 refusals and 0
-  errors. pine2pyne's own README still quotes 25 refusals and 713 of 1,004 byte-identical files
-  (its `docs/compat.md` says 717); those numbers are older than the measurement above.
 - Semantics: where the cloud compiler's output computed other values than Pine (v5 `bool()`
   casts, strict `and`/`or` in v4/v5, `when=` arguments, the v6 `for` end bound, `ta.change`
   casts, v4 `transp`, shadowed globals, `strategy.exit` price-vs-tick parameters), pine2pyne
-  follows Pine; the list with evidence is pine2pyne's `docs/pynecore_vs_pine.md`, and the
-  items were filed as PyneSys issues #107 (closed 2026-11-09: the maintainer states the runtime
-  fixes are in PyneCore 6.13.2 and the compiler fixes are live on the server) and #108 (open).
+  follows Pine. The items were filed by pine2pyne's author as PyneSys issues #107 (closed
+  2026-11-09: the maintainer states the runtime fixes are in PyneCore 6.13.2 and the compiler
+  fixes are live on the server) and #108 (open).
+- The output is checked, not trusted: SKILL.md section 3.3 verifies every generated file
+  against the PyneCore specification before it runs, and section 3.2 ports by hand what a
+  given pine2pyne version does not convert. Neither step needs the cloud.

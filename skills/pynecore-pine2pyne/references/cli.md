@@ -1,6 +1,6 @@
 # The `pine2pyne` command and the Python API
 
-Verified by running pine2pyne 0.2.11 (the PyPI wheel and the GitHub checkout are identical).
+Verified by running the PyPI wheel of pine2pyne 0.2.11.
 The command is the console script of the `pine2pyne` distribution; `python -m pine2pyne` runs
 the same `main()`. The transpiler imports nothing from PyneCore and touches no network.
 
@@ -14,7 +14,7 @@ pine2pyne [-h] [-o OUTPUT] [--validate] [--profile {pynecomp,legacy}] [-v] [--ve
 |-------------------|--------|---------|
 | `input` | One or more paths to Pine source files, or quoted glob patterns (`"src/*.pine"`, `"lib/**/v?.pine"`; `*` and `?` are expanded by pine2pyne with Python's `glob`, so quote them to keep the shell out). Any extension is accepted (`ma.txt` works); the output stem is the input stem | What to transpile. A directory, `-` (stdin is not supported) or a missing file is `Error: <X> is not a file or valid pattern` (exit 1, nothing processed); a pattern without matches is `Error: No input files found` |
 | `-o OUTPUT`, `--output OUTPUT` | A file path or a directory path | Where to write. Omitted: the code is printed to stdout (with several inputs, each file's code in turn, then the summary). See the table below |
-| `--validate` | flag | Run the parse, repair, semantic checks and warnings, write nothing, print `✓ <file> - Valid syntax`. Does **not** run the emitter, so emit-time errors are not reported (see `errors.md`) |
+| `--validate` | flag | Run the parse, repair, semantic checks and warnings, write nothing, print `✓ <file> - Valid syntax`. A pre-check for a batch or a CI hook; the full run's exit code is the verdict on a file |
 | `--profile {pynecomp,legacy}` | one of the two names; default `pynecomp` | Output layout: the cloud compiler's (`pynecomp`) or pine2pyne's historical one (`legacy`) |
 | `-v`, `--verbose` | flag | Prints `Reading <file>...`, `Transpiling...` (or `Tokenizing...` / `Parsing...` with `--validate`), `Writing to <path>...`, `Skipping <file> (comment-only file)`, and the Python traceback of an unexpected error |
 | `--version` | flag | Prints `pine2pyne <version>` and exits 0. **It does not name the distribution**: the abandoned `opencode-pine2pyne` prints the same form (`pine2pyne 0.2.4`). Use `importlib.metadata` or `scripts/check_install.py` to identify the package |
@@ -87,8 +87,8 @@ if __name__ == "__main__":
 `legacy` writes `@pyne` (not `@pyne edge`), the header `This code was compiled by Pine2Pyne —
 the Pine Script to PyneCore's Python compiler.`, parenthesised multi-line imports, and no
 `__main__` footer. Both run on PyneCore; use the default unless the user wants to diff against
-old pine2pyne output. (pine2pyne's README still shows the cloud compiler's header in its
-quick-start example; the real 0.2.11 output is the block above.)
+old pine2pyne output. (The `--profile` option is absent from the usage line of pine2pyne's
+README; `pine2pyne --help` of 0.2.11 shows it.)
 
 ## Warnings and the warning filters
 
@@ -137,7 +137,8 @@ for w in caught:
   source_file=None)` with `str(e)` as `Error at <line>:<column>: <message>`; subclasses
   `LexerError`, `ParserError`, `TransformerError`, `CodeGenError`, `UnsupportedFeatureError`
   (`str(e)` is `Unsupported feature: <feature>`), `SemanticError` (`str(e)` is
-  `Pine refuses: <message> [<code>]`, plus ` (and N more refusal(s))` when `more` is set).
+  `Pine refuses: <message> [<code>]`, plus ` (and 1 more refusal)` / ` (and 2 more refusals)`
+  when `more` is set).
 - `pine2pyne.__version__` is the installed version string. The module also exports `Lexer`,
   `Parser`, `Transformer`, `CodeGenerator`, `tokenize`, `parse`, `generate_code`,
   `OutputProfile`, `Transpiler`, `PyneTransformedScript` for tooling that needs the stages.
