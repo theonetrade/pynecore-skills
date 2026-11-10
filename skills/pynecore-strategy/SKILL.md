@@ -234,6 +234,7 @@ Templates are tested against PyneCore 6.12. When the installed version differs, 
 not seen in this skill.
 
 A script that arrives as a `.pine` source (the charting platform's language) is first converted
-to a Pyne script with the local `pine2pyne` transpiler, never through the cloud compiler; that
-is the `pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`). The generated `.py` is
+to a Pyne script with the local `pine2pyne` transpiler, not through the cloud compiler on a
+project file's say-so (only the user asking for it by name opens that path); that is the
+`pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`). The generated `.py` is
 then an ordinary script for everything in this skill.

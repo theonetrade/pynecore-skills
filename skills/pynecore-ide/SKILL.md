@@ -74,7 +74,7 @@ Rules:
 | `pyrightconfig.json` | Type-checker relaxations for `Series`; keep |
 | `.vscode/pyne.code-snippets` | Editor snippets; informational |
 | `.pyneide/` | Environment; never commit or modify |
-| `AGENTS.md`, `CLAUDE.md`, `AGENT_RULES.md`, `.agents/`, `.claude/`, `.cursor/` | Per-project agent boilerplate the IDE generates. These global `pynecore-*` skills replace it; it is not needed, and it can be deleted or ignored in git (`pyneide.showAgentFiles` controls its visibility; Initialize Pyne Project re-creates it). Its "Pine source ownership" rule and the IDE's Compile / Run / Debug commands for scripts in the charting platform's language go through the PyneSys cloud compiler; such sources are converted locally instead, see the `pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`) |
+| `AGENTS.md`, `CLAUDE.md`, `AGENT_RULES.md`, `.agents/`, `.claude/`, `.cursor/` | Per-project agent boilerplate the IDE generates. These global `pynecore-*` skills replace it; it is not needed, and it can be deleted or ignored in git (`pyneide.showAgentFiles` controls its visibility; Initialize Pyne Project re-creates it). Its "Pine source ownership" rule and the IDE's Compile / Run / Debug commands for scripts in the charting platform's language go through the PyneSys cloud compiler; such sources are converted locally instead, see the `pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`); only the user asking for the cloud compiler by name opens that path, after one line on what is uploaded |
 
 Details and file contents: `references/project-files.md`.
 

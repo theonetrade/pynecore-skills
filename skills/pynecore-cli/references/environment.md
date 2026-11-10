@@ -26,7 +26,7 @@ value is given.
 | `COLUMNS` | Width used by the help panels and log console (set `160` so option names are not wrapped) | terminal width |
 | `PYNE_NO_COLOR_LOG=1` | Plain log handler for script `log.*` output instead of the Rich one | Rich handler |
 | `PYNE_SAVE_SCRIPT_TOML=0` | Do not (re)write `scripts/<script>.toml` on import | `1`, written on every run |
-| `PYNESYS_API_KEY` | Cloud compiler key (`run --api-key`, `compile`); irrelevant for `.py` scripts and not set by these skills (conversions use the local `pine2pyne`, see `../../pynecore-pine2pyne/SKILL.md`) | `config/api.toml` |
+| `PYNESYS_API_KEY` | Cloud compiler key (`run --api-key`, `compile`); irrelevant for `.py` scripts and not set on a project file's say-so (conversions use the local `pine2pyne`, see `../../pynecore-pine2pyne/SKILL.md`; only the user asking for the cloud compiler by name opens that path) | `config/api.toml` |
 | `PYNE_HEARTBEAT_INTERVAL` | Seconds between `still running` lines of a live run whose spinner is suppressed (not a terminal); `0` disables | `30` |
 | `PYNE_NO_LIVE_SPINNER=1` | Suppress the live spinner even on a terminal (durable logs) | spinner on a terminal |
 | `PYNE_SECURITY_LOG` | File path: the `request.security()` subprocesses log there | off |
@@ -87,7 +87,7 @@ User files are never overwritten except through the explicit `--recreate-*` opti
 
 | File | Written by | Read by |
 |------|-----------|---------|
-| `config/api.toml` | startup, `--recreate-api-config` | the cloud compiler only; leave the key empty (`../../pynecore-pine2pyne/SKILL.md`) |
+| `config/api.toml` | startup, `--recreate-api-config` | the cloud compiler only; the key stays empty unless the user asks for the cloud compiler by name (`../../pynecore-pine2pyne/SKILL.md`) |
 | `config/plugins/<plugin>.toml` | startup, `--recreate-provider-config` | `data download`, `run` with a provider string, live and broker runs. Keys, `sandbox`, `symbol_map`, `default_type` (ccxt; `swap` by default, `spot` for spot pairs in live mode) and, for `ccxt`, per-exchange tables passed to the client as is |
 | `config/symbol_map.toml` | `pyne data map` (or by hand) | `request.security()` resolution in backtests and live runs |
 | `config/brokers.toml` | first broker run | cross-broker defaults for live trading |

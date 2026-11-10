@@ -60,7 +60,8 @@ old snapshot intact. It refuses a `--dest` that is not empty and holds no `MANIF
 `--from` that is the destination or nested with it.
 Two pages about converting scripts written in another language through a cloud compiler are
 left out by default (`--keep-all` includes them); such conversions are done locally with the
-`pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`), which documents its own tool.
+`pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`), which documents its own tool;
+the excluded pages matter only when the user asks for the cloud compiler by name.
 
 ## 3. Read only what the task needs
 

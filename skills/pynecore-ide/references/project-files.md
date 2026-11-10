@@ -22,7 +22,7 @@ What **Initialize Pyne Project** creates, what each file is for, and what an age
 ├── data/                      # demo.ohlcv + demo.toml; downloaded/converted data
 ├── config/
 │   ├── .gitignore             # "*" + "!.gitignore": nothing in config/ is versioned (keys live here)
-│   ├── api.toml               # [api] api_key = "" / timeout = 30 (cloud compiler service; unused: see ../../pynecore-pine2pyne/SKILL.md)
+│   ├── api.toml               # [api] api_key = "" / timeout = 30 (cloud compiler service; used only when the user asks for it by name, see ../../pynecore-pine2pyne/SKILL.md)
 │   └── plugins/               # ccxt.toml, replay.toml, ... one per installed provider/broker plugin
 ├── output/                    # run outputs (csv, ndjson, profile json)
 │   └── logs/
@@ -63,7 +63,7 @@ reproduces the workdir part of this layout (marker, folders, `config/.gitignore`
 | `config/plugins/ccxt.toml` | CCXT provider: `apiKey`, `secret`, `password`, `sandbox`, `default_type` (`spot`/`swap`/`future`/`margin`), `symbol_map` | yes; never commit keys |
 | `config/plugins/replay.toml` | Replay provider fixture path (tests) | rarely |
 | `config/symbol_map.toml` | `request.security()` symbol translations (**Edit Symbol Map**) | yes |
-| `config/api.toml` | `[api] api_key = "" / timeout = 30`; key for an optional cloud compiler service; not needed for Pyne scripts, and conversions from the charting platform's language use the local `pine2pyne` instead (`../../pynecore-pine2pyne/SKILL.md`) | leave, key empty |
+| `config/api.toml` | `[api] api_key = "" / timeout = 30`; key for an optional cloud compiler service; not needed for Pyne scripts, and conversions from the charting platform's language use the local `pine2pyne` instead unless the user asks for the cloud compiler by name (`../../pynecore-pine2pyne/SKILL.md`) | leave; a key only when the user asks for the cloud compiler by name |
 | `config/.gitignore` | `*` and `!.gitignore`: keeps every config file (and the keys in `plugins/`) out of git | keep |
 
 ## Environment: `.pyneide/`

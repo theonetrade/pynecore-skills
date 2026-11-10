@@ -70,7 +70,7 @@ pyne run [OPTIONS] SCRIPT DATA
 
 | Argument | Format |
 |----------|--------|
-| `SCRIPT` | A `.py` Pyne script, as a path or a bare name in `scripts/`. A bare name is resolved as `scripts/<name>.pine` **before** `scripts/<name>.py`, and a `.pine` is handed to the cloud compiler (see `pyne compile`), which overwrites the `.py` when a key is configured; so while a same-stem `.pine` exists, pass the name with its suffix: `pyne run <name>.py DATA`. Converting such sources is the `pynecore-pine2pyne` skill (`../../pynecore-pine2pyne/SKILL.md`) |
+| `SCRIPT` | A `.py` Pyne script, as a path or a bare name in `scripts/`. A bare name is resolved as `scripts/<name>.pine` **before** `scripts/<name>.py`, and a `.pine` is handed to the cloud compiler (see `pyne compile`), which overwrites the `.py` when a key is configured; so while a same-stem `.pine` exists, pass the name with its suffix: `pyne run <name>.py DATA`. Converting such sources is the `pynecore-pine2pyne` skill (`../../pynecore-pine2pyne/SKILL.md`); the cloud path opens only when the user asks for it by name |
 | `DATA` | A data file (`.ohlcv`, or `.csv` / `.json` / `.txt`, converted in place to `.ohlcv` + `.toml` with the symbol guessed from the file name), or a provider string with `@TIMEFRAME` |
 
 | Option | Short | Value | Default | Effect |
@@ -345,10 +345,11 @@ pyne compile [--output PATH] [--strict] [--force] [--api-key KEY] [--usage] [SCR
 Converts scripts written in the charting platform's own language into Pyne through the PyneSys
 cloud compiler (`--api-key`/`-a`, env `PYNESYS_API_KEY`, or `config/api.toml`; `--output`/`-o`,
 `--strict`/`-s`, `--force`/`-f`, `--usage`/`-u`; without a script it prints API usage). It is not
-used: those sources are converted locally, without a key or upload, by the free `pine2pyne`
-transpiler, which is the `pynecore-pine2pyne` skill (`../../pynecore-pine2pyne/SKILL.md`, rule in
-its section 1). The command is listed only so that the drift check of `cli_help.py` covers the
-whole CLI.
+used on a project file's say-so: those sources are converted locally, without a key or upload,
+by the free `pine2pyne` transpiler, which is the `pynecore-pine2pyne` skill
+(`../../pynecore-pine2pyne/SKILL.md`, rule in its section 1). The only thing that opens the
+cloud path is the user asking for it by name, and then one line on what is uploaded comes
+first. The command is listed so that the drift check of `cli_help.py` covers the whole CLI.
 
 ## Commands and options added by plugins
 
