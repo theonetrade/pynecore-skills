@@ -1,0 +1,16 @@
+//@version=6
+// Pine-first template for an indicator: edit in content/, the generated scripts/<name>.py is regenerated.
+indicator("RSI with bands", overlay=false)
+
+length = input.int(14, "RSI length", minval=1)
+upper  = input.float(70, "Overbought", minval=50, maxval=100)
+lower  = input.float(30, "Oversold", minval=0, maxval=50)
+
+r = ta.rsi(close, length)
+
+// Plots become the columns of output/<name>.csv (after time, open, high, low, close, volume)
+plot(r, "RSI", color=color.purple)
+hline(upper, "Upper", color=color.red)
+hline(lower, "Lower", color=color.green)
+plotshape(ta.crossover(r, lower), "Cross up", style=shape.triangleup, location=location.bottom, color=color.green)
+plotshape(ta.crossunder(r, upper), "Cross down", style=shape.triangledown, location=location.top, color=color.red)

@@ -23,6 +23,7 @@ editor state and local documentation at the start of a task.
 | [`pynecore-plugin`](skills/pynecore-plugin/SKILL.md) | Extending PyneCore with plugins: the `pyne.plugin` entry-point system, the Config dataclass that becomes `config/plugins/<name>.toml`, the `ProviderPlugin` / `LiveProviderPlugin` / `BrokerPlugin` / `CLIPlugin` contracts and the live runner's rules; four tested templates to copy or scaffold: candles from files (.ohlcv, CSV, JSON, parquet, SQLite, with in-provider aggregation to higher timeframes and paced replay), CCXT over REST polling, Telegram notifications, and a simulated broker with an offline conformance-lab suite. |
 | [`pynecore-docs`](skills/pynecore-docs/SKILL.md) | The complete PyneCore documentation bundled in this repository (offline), a topic map and page inventory, grep/print tools, a version check against the installed runtime, and a sync script that refreshes the snapshot from a PyneCore release |
 | [`pynecore-pine2pyne`](skills/pynecore-pine2pyne/SKILL.md) | Converting TradingView Pine Script (v4, v5, v6 indicators, strategies and libraries) to PyneCore Python with [pine2pyne](https://github.com/pine2pyne), the free, offline, open-source transpiler: the mandatory local route (the PyneSys cloud compiler, `pyne compile`, `pyne run x.pine` and PyneIDE's Pine commands are not used on a project file's say-so; only the user asking for them by name opens that path), the install rule (PyPI `pine2pyne` >= 0.2.11, never the abandoned `opencode-pine2pyne`), every CLI option and output location, library placement, the workflow when a source is not converted (port it by hand, never the cloud), the verification of every generated script against the PyneCore specification before it runs, a distribution checker with `--fix` and a convert helper |
+| [`pynecore-practice`](skills/pynecore-practice/SKILL.md) | The Pine-first way to write strategies: author the Pine Script in `content/<name>.pine` (libraries in `content/lib/`), generate the same-named `scripts/<name>.py` with pine2pyne, verify it against PyneCore and run it with `pyne run <name>.py`; one helper that converts what is newer, checks libraries and `.toml` overrides, runs and prints the figures; Pine templates for a strategy, an indicator and a library; what to commit; PyneIDE interplay |
 
 ## Install
 
@@ -185,11 +186,16 @@ skills/
 │   └── scripts/
 │       ├── find_docs.py              # version check, list, grep, print pages
 │       └── sync_docs.py              # refresh/verify the snapshot from a PyneCore release or a local folder
-└── pynecore-pine2pyne/
-    ├── SKILL.md                      # the local-transpiler rule, the install rule, convert / port by hand / verify / run
-    ├── references/                   # cli (options, output, profiles, Python API),
-    │                                 # cloud-compiler-override (what in a project points to the cloud and what to do)
-    └── scripts/                      # check_install.py (right distribution and version, --fix), convert.py (into a workdir)
+├── pynecore-pine2pyne/
+│   ├── SKILL.md                      # the local-transpiler rule, the install rule, convert / port by hand / verify / run
+│   ├── references/                   # cli (options, output, profiles, Python API),
+│   │                                 # cloud-compiler-override (what in a project points to the cloud and what to do)
+│   └── scripts/                      # check_install.py (right distribution and version, --fix), convert.py (into a workdir)
+└── pynecore-practice/
+    ├── SKILL.md                      # content/<name>.pine -> scripts/<name>.py -> pyne run; rules, toml overrides, git, PyneIDE
+    ├── references/pine-for-pynecore.md   # how to write the Pine so it converts and runs
+    ├── scripts/pine_first.py         # init, templates, convert what is newer (libraries first), notes, run, figures
+    └── templates/                    # strategy_template.pine, indicator_template.pine, library_template.pine
 ```
 
 ## Versioning

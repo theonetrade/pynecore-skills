@@ -1,0 +1,15 @@
+//@version=6
+// Pine-first template for a library. Path: content/lib/<user>/<Name>/v<N>.pine, imported from a
+// script as `import <user>/<Name>/<N> as alias`; pine2pyne writes scripts/lib/<user>/<Name>/v<N>.py
+// and the script's `import lib.<user>.<Name>.v<N> as alias`. <user> is any folder name you choose
+// for your own libraries (a `-` in it becomes `_` in the module path).
+// @description Small price helpers
+library("Helpers")
+
+// @function Stop price a given number of ATRs below the price
+export atrStop(float price, float atr, float mult) =>
+    price - mult * atr
+
+// @function Target price a given number of ATRs above the price
+export atrTarget(float price, float atr, float mult) =>
+    price + mult * atr

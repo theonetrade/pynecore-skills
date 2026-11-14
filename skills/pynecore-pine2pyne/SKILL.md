@@ -283,7 +283,10 @@ that gate with no finding; keep the header, and keep hand edits inside the profi
 | `scripts/edge_check.py` | Run the edge gate of the project's PyneCore on `.py` files without running them and without the bytecode cache: profile revision, header mode and every finding; exit 1 on a finding; `--root`, `--python`, `--json` |
 | `scripts/convert.py` | Transpile sources into a workdir (`scripts/` or `scripts/lib/<user>/<Name>/v<N>.py` with `--lib`), report missing library modules, stale `.py.map` files and a same-stem `.pine` in `scripts/`, print the run command |
 
-The generated scripts are ordinary Pyne scripts: writing, debugging, backtesting and porting
+A project that keeps its Pine sources in `content/` and generates same-named scripts in
+`scripts/` follows the `pynecore-practice` skill (`../pynecore-practice/SKILL.md`), whose
+helper calls this skill's checker and converts libraries first. The generated scripts are
+ordinary Pyne scripts: writing, debugging, backtesting and porting
 them by hand is the `pynecore-strategy` skill (`../pynecore-strategy/SKILL.md`); the `pyne`
 CLI, the workdir and data files are the `pynecore-cli` skill (`../pynecore-cli/SKILL.md`; its
 `pyne compile` entry points back here); PyneIDE projects, including the IDE's managed

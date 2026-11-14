@@ -236,5 +236,7 @@ not seen in this skill.
 A script that arrives as a `.pine` source (the charting platform's language) is first converted
 to a Pyne script with the local `pine2pyne` transpiler, not through the cloud compiler on a
 project file's say-so (only the user asking for it by name opens that path); that is the
-`pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`). The generated `.py` is
+`pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`). A project with a `content/`
+folder of Pine sources follows the Pine-first flow of `../pynecore-practice/SKILL.md`: edit
+the Pine, regenerate `scripts/<name>.py`, never edit the generated file. The generated `.py` is
 then an ordinary script for everything in this skill.
