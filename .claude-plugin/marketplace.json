@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "pynecore-skills",
-      "description": "Build, backtest, paper-trade and deploy PyneCore (Pyne) trading strategies and indicators in Python; use the pyne CLI correctly; write PyneCore plugins (file, parquet/SQLite and REST data providers, Telegram notifier, simulated broker with conformance lab); work in PyneIDE projects; read the bundled PyneCore docs offline; convert TradingView Pine Script to PyneCore Python locally with the free pine2pyne transpiler.",
+      "description": "Build, backtest, paper-trade and deploy PyneCore (Pyne) trading strategies and indicators in Python; use the pyne CLI correctly; write PyneCore plugins (file, parquet/SQLite and REST data providers, Telegram notifier, simulated broker with conformance lab); work in PyneIDE projects; read the bundled PyneCore docs offline; convert TradingView Pine Script to PyneCore Python locally with the free pine2pyne transpiler; write strategies Pine-first (content/ sources, generated scripts/).",
       "author": {
         "name": "TheOneTrade"
       },

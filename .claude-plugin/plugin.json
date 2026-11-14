@@ -1,7 +1,7 @@
 {
   "name": "pynecore-skills",
   "version": "0.5.0",
-  "description": "Skills for PyneCore (Pyne) trading-strategy development in Python: writing and backtesting strategies and indicators (language rules, strategy API, data and the candle cache, ScriptRunner, multi-timeframe, live mode, FreqTrade integration, scaffolding, download, backtest, paper and live tools), the pyne CLI itself (every command and option, workdir, environment variables, non-interactive use), writing PyneCore plugins (the entry-point system and contracts, with tested templates: candles from files incl. parquet/SQLite and timeframe aggregation, CCXT over REST polling, Telegram notifications, a simulated broker with an offline conformance lab), working in PyneIDE projects (managed environment, generated files, editor commands), offline lookup of the bundled PyneCore documentation, and converting TradingView Pine Script (v4-v6 indicators, strategies, libraries) to PyneCore Python locally with the free open-source pine2pyne transpiler instead of the cloud compiler (install rule, every option, libraries, porting by hand when a source is not converted, verifying the generated script against the PyneCore specification, a distribution checker and a convert helper).",
+  "description": "Skills for PyneCore (Pyne) trading-strategy development in Python: writing and backtesting strategies and indicators (language rules, strategy API, data and the candle cache, ScriptRunner, multi-timeframe, live mode, FreqTrade integration, scaffolding, download, backtest, paper and live tools), the pyne CLI itself (every command and option, workdir, environment variables, non-interactive use), writing PyneCore plugins (the entry-point system and contracts, with tested templates: candles from files incl. parquet/SQLite and timeframe aggregation, CCXT over REST polling, Telegram notifications, a simulated broker with an offline conformance lab), working in PyneIDE projects (managed environment, generated files, editor commands), offline lookup of the bundled PyneCore documentation, and converting TradingView Pine Script (v4-v6 indicators, strategies, libraries) to PyneCore Python locally with the free open-source pine2pyne transpiler instead of the cloud compiler (install rule, every option, libraries, porting by hand when a source is not converted, verifying the generated script against the PyneCore specification, a distribution checker and a convert helper), and the Pine-first project flow (Pine sources in content/, generated same-named Pyne scripts in scripts/, one helper to convert, check, run and report; Pine templates).",
   "author": {
     "name": "TheOneTrade"
   },
@@ -17,6 +17,7 @@
     "monte-carlo",
     "paper-trading",
     "parquet",
+    "pine-first",
     "pine-script",
     "pine2pyne",
     "plugin",
