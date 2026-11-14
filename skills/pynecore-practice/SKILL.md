@@ -1,14 +1,17 @@
 ---
 name: pynecore-practice
 license: MIT
-description: "The Pine-first way to write PyneCore strategies, indicators and libraries: author the Pine Script in `content/<name>.pine` (libraries in `content/lib/<user>/<Name>/v<N>.pine`), generate the same-named Pyne script `scripts/<name>.py` with the local pine2pyne, verify it against PyneCore, run it with `pyne run <name>.py <data>`, and iterate in the Pine source only. Use whenever a task says write / create / change a strategy or indicator in a project that has a `content/` folder, mentions `content/`, 'Pine-first', 'generate the script and run it', asks to add an input or change the logic of a strategy that exists as a `.pine`, or when a `.pine` and a same-named `.py` are both present. Covers the layout, the one helper that converts, checks and runs, the `scripts/<name>.toml` override rule, libraries, what to commit, PyneIDE interplay, what to do when a source does not convert, and how to report."
+description: "The Pine-first way to write PyneCore strategies, indicators and libraries: author the Pine Script in `content/<name>.pine` (libraries in `content/lib/<user>/<Name>/v<N>.pine`), generate the same-named Pyne script `scripts/<name>.py` with the local pine2pyne, verify it against PyneCore, run it with `pyne run <name>.py <data>`, and iterate in the Pine source only. Use whenever a task says write / create / change a strategy or indicator in a project that has a `content/` folder, mentions `content/`, 'Pine-first', 'generate the script and run it', asks to add an input or change the logic of a strategy that exists as a `.pine`, or when a `.pine` and a same-named `.py` are both present. Covers the layout, the one helper that converts, checks and runs, the `scripts/<name>.toml` override rule, libraries, what to commit, PyneIDE interplay, what to do when a source does not convert, how to record generator or PyneCore problems in the project's `docs/pynecore_vs_pine.md`, and how to report. Self-contained: carries the full pine2pyne install-and-use guide and its install checker."
 ---
 
 # Pine-first: `content/<name>.pine` → `scripts/<name>.py` → `pyne run`
 
 The user writes strategies in Pine Script and runs them on PyneCore. The Pine source is the
-only file edited by hand; the Pyne script is generated from it by the local `pine2pyne`
-(`../pynecore-pine2pyne/SKILL.md`), carries the same stem, and is what `pyne run` executes.
+only file edited by hand and **stays in `content/` after generation, for the life of the
+script**; the Pyne script is generated from it by the local `pine2pyne` (install and usage
+guide: `references/pine2pyne.md`), carries the same stem, and is what `pyne run` executes.
+Every development iteration is the same three moves: change the `.pine`, regenerate the
+`.py`, run.
 Every statement below was exercised on a workdir with the demo data (PyneCore 6.12.1,
 pine2pyne 0.2.11): a strategy, an indicator and a library, converted, run, edited and
 re-converted.
@@ -47,7 +50,7 @@ PYNE_NO_LOGO=1 pyne --workdir <workdir> run ema_atr.py demo                  # a
 
 - `pyne run <name>` with a bare name resolves `scripts/<name>.pine` **before** `scripts/<name>.py`,
   and with a PyneSys key configured it uploads the Pine to the cloud compiler and overwrites the
-  `.py` (`../pynecore-pine2pyne/references/cloud-compiler-override.md`). With no `.pine` in
+  `.py` (`references/pine2pyne.md`, section 1). With no `.pine` in
   `scripts/`, both `pyne run ema_atr demo` and `pyne run ema_atr.py demo` run the generated file
   (verified).
 - PyneIDE treats `scripts/*.pine` as cloud-compile targets (Run / Debug Pine Script, Compile
@@ -60,12 +63,12 @@ PYNE_NO_LOGO=1 pyne --workdir <workdir> run ema_atr.py demo                  # a
 
 1. **New script**: `pine_first.py --template strategy <name>` (or `indicator`, or `library`,
    which writes `content/lib/mine/<name>/v1.pine`) copies a working template; or create
-   `content/<name>.pine` yourself. Write Pine the way `references/pine-for-pynecore.md`
+   `content/<name>.pine` yourself. Write Pine the way `references/getting-started.md`
    describes: `//@version=6`, one declaration, inputs with literal defaults and titles, `ta.*`
    at the top level, typed `var` state, unique plot titles, order ids.
 2. **Build and run**: `pine_first.py <name> --run <data>`. The helper checks that the installed
-   transpiler is `pine2pyne` >= 0.2.11 (through the `pynecore-pine2pyne` skill's checker, when
-   that skill is installed beside this one), converts every library under `content/lib/` and the
+   transpiler is `pine2pyne` >= 0.2.11 (`scripts/check_install.py`; `references/pine2pyne.md`
+   section 2 has the install rule), converts every library under `content/lib/` and the
    script when the Pine is newer than the `.py` (`--force` to redo), prints pine2pyne's `✓` / `✗`
    lines, then runs `pyne run <name>.py <data>` and prints the figures from `output/`:
 
@@ -85,7 +88,7 @@ PYNE_NO_LOGO=1 pyne --workdir <workdir> run ema_atr.py demo                  # a
    Options for `pyne run` go after `--`: `pine_first.py ema_atr --run BTCUSDT_60 -- --from
    2024-01-01 --to 2024-12-31 --no-plot`.
 3. **Verify the generated script** against PyneCore before trusting the numbers: read
-   `scripts/<name>.py` with the checklist of `../pynecore-pine2pyne/SKILL.md` section 3.3
+   `scripts/<name>.py` with the checklist of `references/pine2pyne.md` section 7
    (decorator arguments, inputs, `Persistent` / `Series` annotations, library imports, `ta.*`
    names, order calls, `request.security` data). Do it on the first generation and after any
    structural change in the Pine; a parameter tweak does not need it.
@@ -99,9 +102,12 @@ PYNE_NO_LOGO=1 pyne --workdir <workdir> run ema_atr.py demo                  # a
 
 ## 3. Rules
 
-1. **`content/<name>.pine` is the source of truth; `scripts/<name>.py` is never edited by hand.**
-   The next build overwrites it (the helper converts whenever the Pine is newer). A fix belongs
-   in the Pine.
+1. **`content/<name>.pine` is the source of truth, is never deleted after generation, and
+   `scripts/<name>.py` is never edited by hand.** Every change, on every iteration of the
+   development, is made in the `.pine` first and carried into the `.py` by re-converting before
+   the run (`pine_first.py <name> --run <data>` does both). The next build overwrites the `.py`
+   (the helper converts whenever the Pine is newer), so a fix that lives only in the `.py` is
+   lost; a fix belongs in the Pine.
 2. **Same stem, same place.** `content/<name>.pine` ↔ `scripts/<name>.py` ↔ `scripts/<name>.toml`
    ↔ `output/<name>*.csv`. Libraries: `content/lib/<user>/<Name>/v<N>.pine` ↔
    `scripts/lib/<user>/<Name>/v<N>.py` ↔ `import <user>/<Name>/<N> as alias` in the Pine
@@ -125,7 +131,7 @@ PYNE_NO_LOGO=1 pyne --workdir <workdir> run ema_atr.py demo                  # a
 6. **A source pine2pyne does not convert is fixed in Pine or leaves the flow.** `✗ ... Pine
    refuses: ... [code]` names a rule TradingView enforces too: fix the Pine and build again.
    `Unsupported feature: ...` or another error: rewrite the construct if the text suggests one;
-   otherwise port the script by hand (`../pynecore-pine2pyne/SKILL.md` section 3.2) and **move
+   otherwise port the script by hand (`references/pine2pyne.md` section 6) and **move
    its Pine to `content/ported/<name>.pine`**: the helper only scans `content/*.pine`, so the
    hand-written `scripts/<name>.py` is never overwritten, and the Pine stays as the reference.
    Say in the report which scripts are hand-maintained. Never answer a failed conversion with
@@ -140,7 +146,30 @@ PYNE_NO_LOGO=1 pyne --workdir <workdir> run ema_atr.py demo                  # a
    pine2pyne version, and a diff of the `.py` shows what a Pine edit changed in the Pyne
    output. Pin `pine2pyne>=0.2.11` and PyneCore in the project's requirements.
 
-## 4. PyneIDE in this flow
+## 4. When the generated code or PyneCore misbehaves: `docs/pynecore_vs_pine.md`
+
+The review steps are not optional: step 3 of section 2 reads the generated `.py` against the
+PyneCore specification, and step 5 reads the run. When either finds a problem that is not a
+mistake in the Pine source, record it, in the project, in **`docs/pynecore_vs_pine.md`** (the
+project root, beside `content/` or beside `workdir/`), created on the first finding from
+`templates/pynecore_vs_pine.md` and kept up to date afterwards. Two kinds of rows:
+
+| Kind | Trigger | Row (section of the file) |
+|------|---------|---------------------------|
+| **Generator**: pine2pyne wrote code that is wrong | `scripts/<name>.py` fails to load (`SyntaxError`, `NameError`, `ImportError`), raises on a bar (`TypeError`, `IndexError`, `UnboundLocalError`, ...), or a plot / trade differs from what the Pine logic says while the runtime behaves (a value traced to a mis-spelled construct, a lost branch, a wrong cast) | Section 2: the Pine construct with script and line, what pine2pyne wrote, what happened (exact message), the fix in force (a rewrite of the Pine that converts correctly, or the hand-maintained port in `content/ported/`), basis with pine2pyne and PyneCore versions and date |
+| **Runtime**: PyneCore computes differently from Pine | The generated code is a faithful spelling of the Pine, yet the figures or a plot differ from the same script on the same bars on TradingView, or PyneCore raises on valid Pyne (`na` handling, `bool` states, loop bounds, `strategy.exit` priority, `request.security` alignment, ...) | Section 1: in Pine, in PyneCore, the workaround written into `content/<name>.pine`, basis (symbol, timeframe, date range, how it was measured, PyneCore version) |
+
+What a row needs: a minimal reproduction (inline, or `content/probes/<id>.pine` converted with
+`pine_first.py content/probes/<id>.pine`), the exact message or the two figures, the versions
+(`pine2pyne --version`, `python -c "import importlib.metadata as m; print(m.version('pynesys-pynecore'))"`)
+and the date. A difference that was not measured on TradingView goes to section 3 of the file
+until it is. The workaround itself goes into the Pine source (rule 1), with a comment that
+names the row (`// pynecore_vs_pine #3`), so the next conversion carries it. Report the finding
+upstream when it is reproducible (pine2pyne: <https://github.com/pine2pyne/pine2pyne/issues>;
+PyneCore: <https://github.com/PyneSys/pynecore/issues>) and put the link in the row; when a
+newer version removes the problem, say so in the row and drop the workaround from the Pine.
+
+## 5. PyneIDE in this flow
 
 - The IDE's Scripts tree shows `scripts/`: **Run Pyne code**, **Debug Pyne code**, **Profile**,
   **Open Chart** and **Edit Inputs…** work on the generated `scripts/<name>.py` as on any Pyne
@@ -149,17 +178,17 @@ PYNE_NO_LOGO=1 pyne --workdir <workdir> run ema_atr.py demo                  # a
 - Never run the IDE's Pine commands on a file in `content/` or `scripts/`; a `.py.map` from an
   earlier cloud compile is stale and harmless.
 
-## 5. Report
+## 6. Report
 
 What to tell the user after a build-and-run: the Pine file edited and what changed in it; the
 pine2pyne version and whether the script and which libraries were (re)converted or were up to
 date; every `✗`, `⚠` and `note:` line and what was done about it (a toml override in force is
 worth a sentence); the data and range run; the figures (`Net profit`, `Total trades`,
 `Percent profitable`, `Profit factor`, `Max equity drawdown`) with the path of `_strat.csv` and
-`_trade.csv`; which scripts, if any, are hand-maintained and why; and what was verified in the
-generated code versus assumed.
+`_trade.csv`; which scripts, if any, are hand-maintained and why; what was verified in the
+generated code versus assumed; and every row added to or changed in `docs/pynecore_vs_pine.md`.
 
-## 6. Bundled files
+## 7. Bundled files
 
 | File | Use |
 |------|-----|
@@ -167,10 +196,14 @@ generated code versus assumed.
 | `templates/strategy_template.pine` | EMA cross with ATR stop / target, trend filter input, typed `var` state, four titled plots; converts and runs on the demo data |
 | `templates/indicator_template.pine` | RSI with bands, `hline`s and `plotshape` markers; converts and runs |
 | `templates/library_template.pine` | `library("Helpers")` with two exported functions, the path and import spelling explained in its header |
-| `references/pine-for-pynecore.md` | How to write the Pine so it converts and runs: structure, the rules TradingView enforces too, libraries, data, what to verify after generation |
+| `templates/pynecore_vs_pine.md` | The project's `docs/pynecore_vs_pine.md` to create on the first finding: runtime differences, generator problems, not-measured list, where things are (section 4) |
+| `references/getting-started.md` | How to write the Pine so it converts and runs: structure, the rules TradingView enforces too, libraries, data, what to verify after generation |
+| `references/pine2pyne.md` | The transpiler in full: the local-only rule and the user's exception, installing the right distribution (`pine2pyne` >= 0.2.11, never `opencode-pine2pyne`), every option and where output goes, what a generated file looks like, reading `✓` / `⚠` / `✗` lines, porting by hand, the PyneCore verification checklist, the note for a PyneIDE project's agent files |
+| `scripts/check_install.py` | Verify the installed distribution is `pine2pyne` >= 0.2.11 and not `opencode-pine2pyne`; `--fix` repairs (same script as in the `pynecore-pine2pyne` skill) |
 
 Converting, the install rule for `pine2pyne`, reading its messages and verifying the generated
-code are the `pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`); everything about
+code are documented here in `references/pine2pyne.md` and, with a generic converter helper, in
+the `pynecore-pine2pyne` skill (`../pynecore-pine2pyne/SKILL.md`); everything about
 the Pyne script once it exists (language, strategy API, backtest reports, Monte Carlo, live) is
 the `pynecore-strategy` skill (`../pynecore-strategy/SKILL.md`); the `pyne` command and the
 workdir are the `pynecore-cli` skill (`../pynecore-cli/SKILL.md`); PyneIDE is the `pynecore-ide`

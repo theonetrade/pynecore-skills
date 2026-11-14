@@ -193,9 +193,12 @@ skills/
 │   └── scripts/                      # check_install.py (right distribution and version, --fix), convert.py (into a workdir)
 └── pynecore-practice/
     ├── SKILL.md                      # content/<name>.pine -> scripts/<name>.py -> pyne run; rules, toml overrides, git, PyneIDE
-    ├── references/pine-for-pynecore.md   # how to write the Pine so it converts and runs
-    ├── scripts/pine_first.py         # init, templates, convert what is newer (libraries first), notes, run, figures
-    └── templates/                    # strategy_template.pine, indicator_template.pine, library_template.pine
+    ├── references/                   # getting-started (how to write the Pine so it converts and runs),
+    │                                 # pine2pyne (install, options, output, messages, port by hand, PyneCore verification)
+    ├── scripts/                      # pine_first.py (init, templates, convert what is newer, notes, run, figures),
+    │                                 # check_install.py (right pine2pyne distribution and version, --fix)
+    └── templates/                    # strategy_template.pine, indicator_template.pine, library_template.pine,
+                                      # pynecore_vs_pine.md (the project's findings file: runtime and generator problems)
 ```
 
 ## Versioning

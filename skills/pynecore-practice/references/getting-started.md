@@ -60,5 +60,5 @@ redeclaring a variable in one scope (a warning, the later one wins).
 ## After generation
 
 The generated `scripts/<name>.py` is verified against PyneCore before it is trusted
-(`../../pynecore-pine2pyne/SKILL.md`, section 3.3) and then run. Fix findings in the Pine source
+(`pine2pyne.md`, section 7) and then run. Fix findings in the Pine source
 and re-convert; the only file you edit is the one in `content/`.

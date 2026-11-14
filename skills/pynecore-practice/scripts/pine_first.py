@@ -38,7 +38,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SKILL = HERE.parent
 TEMPLATES = SKILL / "templates"
-PINE2PYNE_SKILL_SCRIPTS = SKILL.parent / "pynecore-pine2pyne" / "scripts"  # sibling skill, when installed
+CHECKER_DIRS = (HERE, SKILL.parent / "pynecore-pine2pyne" / "scripts")  # this skill's copy, then the sibling skill
 VENV_CANDIDATES = (".venv", "venv", "env", os.path.join(".pyneide", "venv"))
 BIN_DIRS = ("bin", "Scripts")
 LIB_IMPORT_RE = re.compile(r"^\s*import\s+lib\.([A-Za-z_]\w*)\.([A-Za-z_]\w*)\.v(\d+)\b", re.M)
@@ -75,11 +75,12 @@ def find_tool(name: str, explicit: str | None, workdir: Path) -> Path | None:
 
 
 def check_install(pine2pyne: Path) -> str | None:
-    """Verdict of the pine2pyne skill's check_install.py for the environment that owns the command,
-    or None when that skill is not installed beside this one."""
-    if not (PINE2PYNE_SKILL_SCRIPTS / "check_install.py").is_file():
+    """Verdict of check_install.py (this skill's scripts/, else the pynecore-pine2pyne skill's) for the
+    environment that owns the command; None when the checker is missing or the verdict is OK."""
+    checker = next((d for d in CHECKER_DIRS if (d / "check_install.py").is_file()), None)
+    if checker is None:
         return None
-    sys.path.insert(0, str(PINE2PYNE_SKILL_SCRIPTS))
+    sys.path.insert(0, str(checker))
     sys.dont_write_bytecode = True
     import check_install as ci  # noqa: E402
     owner = ci.interpreter_of_script(pine2pyne)
@@ -208,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--pyne", metavar="PATH", help="path of the pyne command (default: a project venv in or above the workdir, then PATH)")
     ap.add_argument("--pine2pyne", metavar="PATH", help="path of the pine2pyne command (default: same lookup)")
     ap.add_argument("--no-install-check", action="store_true",
-                    help="skip the check that the transpiler is the pine2pyne distribution >= 0.2.11 (needs the pynecore-pine2pyne skill installed beside this one)")
+                    help="skip the check that the transpiler is the pine2pyne distribution >= 0.2.11 (scripts/check_install.py)")
     args = ap.parse_args(argv)
 
     workdir = find_workdir(args.workdir)
