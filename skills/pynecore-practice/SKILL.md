@@ -169,7 +169,56 @@ upstream when it is reproducible (pine2pyne: <https://github.com/pine2pyne/pine2
 PyneCore: <https://github.com/PyneSys/pynecore/issues>) and put the link in the row; when a
 newer version removes the problem, say so in the row and drop the workaround from the Pine.
 
-## 5. PyneIDE in this flow
+## 5. Patch the project's agent files so they say pine2pyne
+
+A PyneIDE project carries `AGENTS.md` (a generated block `<!-- pyneide-project:start -->` ...
+`<!-- pyneide-project:end -->` with a "Pine source ownership" section that routes every Pine
+task to the IDE's cloud compile), a `CLAUDE.md` that usually only contains `@AGENTS.md` inside
+the same markers, and `AGENT_RULES.md` ("My development preferences", read by the IDE as the
+user's rules and kept across refreshes). A host loads these files into every session above any
+skill, so until they say pine2pyne, each new session starts with an instruction this skill has
+to contradict. **On the first conversion in such a project, patch them**:
+
+```bash
+python3 <skill>/scripts/pine_first.py --agent-files      # idempotent; prints what it changed
+```
+
+What it does, and what to do by hand when the helper is not used:
+
+| File | Action |
+|------|--------|
+| `AGENT_RULES.md` | Append the note below (the durable place: PyneIDE keeps this file when the project is re-initialized; the starter text may stay) |
+| `AGENTS.md` | Append the note **after** `<!-- pyneide-project:end -->`, never inside the block: Initialize Pyne Project rewrites the block and leaves text outside it |
+| `CLAUDE.md` | Same, unless its only content is `@AGENTS.md`: then nothing to add, it already includes `AGENTS.md` |
+| `.agents/skills/*`, `.claude/skills/*`, `.cursor/skills/*` | Leave them; generated copies the IDE re-creates, and the note above them wins for the agent |
+| A project without these files | Nothing to patch; this skill's rule suffices |
+
+Keep the IDE's "Pine source ownership" text: its part about the `.pine` being the source of
+truth and the `.py` not being hand-edited is exactly rule 1. The note, appended verbatim (the
+helper writes the same text and skips a file that already carries the first line):
+
+```markdown
+<!-- pine2pyne: local Pine conversion -->
+## Pine Script conversion
+
+Pine sources (`.pine`) in this project live in `content/` and are converted to Pyne Python
+locally with the `pine2pyne` transpiler (PyPI `pine2pyne>=0.2.11`), never with the PyneSys
+cloud compiler: no `pyne compile`, no `pyne run <name>.pine`, no API key in `config/api.toml`,
+and none of PyneIDE's Pine commands (Compile / Run / Debug / Profile Pine Script, Convert to
+Pine v6). Convert with `pine2pyne content/<name>.pine -o scripts/<name>.py` (libraries:
+`content/lib/<user>/<Name>/v<N>.pine` -> `scripts/lib/<user>/<Name>/v<N>.py`), keep the `.pine`
+as the source of truth, re-convert after each Pine edit instead of hand-editing the `.py`, and
+run, debug and chart the `.py` (`pyne run <name>.py <data>`, PyneIDE "Run Pyne code" / "Debug
+Pyne code"). A source pine2pyne refuses is ported to Pyne by hand, never sent to the cloud. The
+cloud compiler runs only when the user asks for it by name. Details and tools: the
+`pynecore-practice` skill.
+```
+
+Verify with `grep -l "pine2pyne: local Pine conversion" AGENT_RULES.md AGENTS.md CLAUDE.md` and
+say in the report which files received the note. If the user does not want the files changed,
+say so in the report and follow the rule for the session only.
+
+## 6. PyneIDE in this flow
 
 - The IDE's Scripts tree shows `scripts/`: **Run Pyne code**, **Debug Pyne code**, **Profile**,
   **Open Chart** and **Edit Inputs…** work on the generated `scripts/<name>.py` as on any Pyne
@@ -178,7 +227,7 @@ newer version removes the problem, say so in the row and drop the workaround fro
 - Never run the IDE's Pine commands on a file in `content/` or `scripts/`; a `.py.map` from an
   earlier cloud compile is stale and harmless.
 
-## 6. Report
+## 7. Report
 
 What to tell the user after a build-and-run: the Pine file edited and what changed in it; the
 pine2pyne version and whether the script and which libraries were (re)converted or were up to
@@ -186,13 +235,14 @@ date; every `✗`, `⚠` and `note:` line and what was done about it (a toml ove
 worth a sentence); the data and range run; the figures (`Net profit`, `Total trades`,
 `Percent profitable`, `Profit factor`, `Max equity drawdown`) with the path of `_strat.csv` and
 `_trade.csv`; which scripts, if any, are hand-maintained and why; what was verified in the
-generated code versus assumed; and every row added to or changed in `docs/pynecore_vs_pine.md`.
+generated code versus assumed; every row added to or changed in `docs/pynecore_vs_pine.md`; and
+which agent files received the pine2pyne note (section 5).
 
-## 7. Bundled files
+## 8. Bundled files
 
 | File | Use |
 |------|-----|
-| `scripts/pine_first.py` | The flow in one command: `--init`, `--template {strategy,indicator,library} NAME`, convert `content/<name>.pine` (and `content/lib/**`) when newer or `--force`, notes on `.pine` twins, stale `.py.map`, missing libraries and toml overrides, `--run DATA [-- pyne options]` with the figures; stdlib only |
+| `scripts/pine_first.py` | The flow in one command: `--init`, `--agent-files` (the note of section 5 into `AGENT_RULES.md` / `AGENTS.md` / `CLAUDE.md`, idempotent), `--template {strategy,indicator,library} NAME`, convert `content/<name>.pine` (and `content/lib/**`) when newer or `--force`, notes on `.pine` twins, stale `.py.map`, missing libraries and toml overrides, `--run DATA [-- pyne options]` with the figures; stdlib only |
 | `templates/strategy_template.pine` | EMA cross with ATR stop / target, trend filter input, typed `var` state, four titled plots; converts and runs on the demo data |
 | `templates/indicator_template.pine` | RSI with bands, `hline`s and `plotshape` markers; converts and runs |
 | `templates/library_template.pine` | `library("Helpers")` with two exported functions, the path and import spelling explained in its header |

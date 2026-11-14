@@ -249,6 +249,9 @@ wrote wrongly, or PyneCore computing differently from TradingView) is recorded i
 
 ## 8. Recording the rule in a PyneIDE project's agent files
 
+`pine_first.py --agent-files` appends the note below to the files that exist and lack it;
+SKILL.md section 5 has the per-file table.
+
 A host loads the project's `CLAUDE.md` / `AGENTS.md` into every session, so while those files
 say "compile through PyneIDE" each session starts with an instruction to contradict. On the
 first conversion in such a project, add the note below to `AGENT_RULES.md` (PyneIDE keeps it

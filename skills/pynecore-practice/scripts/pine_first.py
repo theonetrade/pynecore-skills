@@ -7,9 +7,11 @@ and `pyne run <name>.py DATA` runs it. The script converts what is out of date, 
 result needs, runs it and prints the figures. It never calls `pyne compile` or any network service.
 
 Standard library only. Reads only the workdir; writes only under `content/` (with --init /
---template) and `scripts/`, and lets `pyne run` write `output/` and `scripts/<name>.toml`.
+--template) and `scripts/`, appends to the project's agent files with --agent-files, and lets
+`pyne run` write `output/` and `scripts/<name>.toml`.
 
     python3 pine_first.py --init                         # create content/, content/lib/, scripts/lib/ in the workdir
+    python3 pine_first.py --agent-files                  # append the pine2pyne note to AGENT_RULES.md / AGENTS.md / CLAUDE.md (idempotent)
     python3 pine_first.py --template strategy my_strat   # content/my_strat.pine from templates/strategy_template.pine
     python3 pine_first.py my_strat                       # convert content/my_strat.pine -> scripts/my_strat.py if it is newer
     python3 pine_first.py my_strat --run demo            # convert if needed, then `pyne run my_strat.py demo`, print the figures
@@ -44,6 +46,23 @@ BIN_DIRS = ("bin", "Scripts")
 LIB_IMPORT_RE = re.compile(r"^\s*import\s+lib\.([A-Za-z_]\w*)\.([A-Za-z_]\w*)\.v(\d+)\b", re.M)
 TOML_VALUE_RE = re.compile(r"^\[inputs\.(\w+)\]|^value\s*=\s*(.+)$", re.M)
 METRICS = ("Net profit", "Total trades", "Percent profitable", "Profit factor", "Max equity drawdown", "Avg P&L")
+AGENT_FILES = ("AGENT_RULES.md", "AGENTS.md", "CLAUDE.md")
+NOTE_MARKER = "<!-- pine2pyne: local Pine conversion -->"
+AGENT_NOTE = NOTE_MARKER + """
+## Pine Script conversion
+
+Pine sources (`.pine`) in this project live in `content/` and are converted to Pyne Python
+locally with the `pine2pyne` transpiler (PyPI `pine2pyne>=0.2.11`), never with the PyneSys
+cloud compiler: no `pyne compile`, no `pyne run <name>.pine`, no API key in `config/api.toml`,
+and none of PyneIDE's Pine commands (Compile / Run / Debug / Profile Pine Script, Convert to
+Pine v6). Convert with `pine2pyne content/<name>.pine -o scripts/<name>.py` (libraries:
+`content/lib/<user>/<Name>/v<N>.pine` -> `scripts/lib/<user>/<Name>/v<N>.py`), keep the `.pine`
+as the source of truth, re-convert after each Pine edit instead of hand-editing the `.py`, and
+run, debug and chart the `.py` (`pyne run <name>.py <data>`, PyneIDE "Run Pyne code" / "Debug
+Pyne code"). A source pine2pyne refuses is ported to Pyne by hand, never sent to the cloud. The
+cloud compiler runs only when the user asks for it by name. Details and tools: the
+`pynecore-practice` skill.
+"""
 
 
 # ----------------------------------------------------------------------------- locate things
@@ -89,6 +108,36 @@ def check_install(pine2pyne: Path) -> str | None:
     info = ci.probe(owner)
     state, why = ci.verdict(info)
     return None if state == "ok" else why
+
+
+# ----------------------------------------------------------------------------- agent files
+
+def patch_agent_files(workdir: Path) -> list[str]:
+    """Append AGENT_NOTE to every AGENT_RULES.md / AGENTS.md / CLAUDE.md in the workdir or its parent
+    that does not carry it yet. Appending keeps the note outside PyneIDE's generated block
+    (`<!-- pyneide-project:start -->` ... `<!-- pyneide-project:end -->`), which the IDE rewrites.
+    A CLAUDE.md whose only content is `@AGENTS.md` is left alone (it includes AGENTS.md)."""
+    lines = []
+    roots = [workdir] + ([workdir.parent] if (workdir.parent / "AGENTS.md").is_file() or (workdir.parent / "AGENT_RULES.md").is_file() else [])
+    for root in roots:
+        for fname in AGENT_FILES:
+            f = root / fname
+            if not f.is_file():
+                continue
+            text = f.read_text(encoding="utf-8")
+            if NOTE_MARKER in text:
+                lines.append(f"= {f}: note already present")
+                continue
+            body = [l.strip() for l in text.splitlines() if l.strip() and not l.strip().startswith("<!--")]
+            if fname == "CLAUDE.md" and body == ["@AGENTS.md"]:
+                lines.append(f"= {f}: only includes AGENTS.md, nothing to add")
+                continue
+            with f.open("a", encoding="utf-8") as fh:
+                fh.write(("" if text.endswith("\n") else "\n") + "\n" + AGENT_NOTE)
+            lines.append(f"+ {f}: note appended")
+    if not lines:
+        lines.append("no AGENT_RULES.md / AGENTS.md / CLAUDE.md in the workdir or its parent; nothing to patch")
+    return lines
 
 
 # ----------------------------------------------------------------------------- the flow
@@ -200,6 +249,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--workdir", metavar="DIR",
                     help="the PyneCore workdir (holds .pyne, content/, scripts/, data/); default: the current folder or its workdir/ child with a .pyne marker")
     ap.add_argument("--init", action="store_true", help="create content/, content/lib/ and scripts/lib/ in the workdir (never overwrites)")
+    ap.add_argument("--agent-files", action="store_true",
+                    help="append the pine2pyne note to AGENT_RULES.md, AGENTS.md and CLAUDE.md found in the workdir or its parent, outside PyneIDE's generated block; idempotent (skips files that carry the marker and a CLAUDE.md that only includes AGENTS.md)")
     ap.add_argument("--template", choices=("strategy", "indicator", "library"), metavar="{strategy,indicator,library}",
                     help="with one NAME: copy templates/<kind>_template.pine to content/NAME.pine (library: content/lib/mine/NAME/v1.pine); refuses to overwrite")
     ap.add_argument("--all", action="store_true", help="every content/*.pine (libraries under content/lib/ are always included first)")
@@ -222,6 +273,11 @@ def main(argv: list[str] | None = None) -> int:
             d.mkdir(parents=True, exist_ok=True)
         print(f"ready: {content}/ (Pine sources), {content}/lib/<user>/<Name>/v<N>.pine (libraries), "
               f"{workdir}/scripts/ (generated Pyne, do not edit)")
+    if args.agent_files:
+        for line in patch_agent_files(workdir):
+            print(line)
+        if not (args.names or args.all or args.template):
+            return 0
     if args.template:
         if len(args.names) != 1:
             print("--template needs exactly one NAME", file=sys.stderr)
@@ -266,9 +322,11 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if (src.stem, src) not in targets:
             targets.append((src.stem, src))
-    if not targets and not args.init and not args.template:
+    if not targets and not args.init and not args.template and not args.agent_files:
         print("nothing to do: give NAME(s) or --all", file=sys.stderr)
         return 2
+    if not targets:
+        return 0
 
     failed = 0
     # libraries first
